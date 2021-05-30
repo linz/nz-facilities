@@ -10,7 +10,7 @@ COMMENT ON SCHEMA facilities_lds IS
 
 -- The nz_facilities table holds a multipolygon geometry, originating from National Map facility polygons and authoritative source data
 CREATE TABLE IF NOT EXISTS facilities_lds.nz_facilities (
-      facility_id integer PRIMARY KEY
+      facility_id serial PRIMARY KEY
     , external_facility_id character varying(80) DEFAULT ''
     , name character varying(250) DEFAULT ''
     , external_name character varying(250) DEFAULT ''
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS facilities_lds.nz_facilities (
     , use_type character varying(150) DEFAULT ''
     , use_subtype character varying(150) DEFAULT ''
     , estimated_occupancy integer DEFAULT 0
-    , last_modified date
+    , last_modified date DEFAULT ('now'::text)::date
     , internal boolean NOT NULL DEFAULT false
     , internal_comments character varying(100) DEFAULT ''
     , shape public.geometry(MultiPolygon, 2193) NOT NULL
@@ -28,10 +28,10 @@ CREATE INDEX shx_nz_facilities
     ON facilities_lds.nz_facilities USING gist (shape);
 
 COMMENT ON TABLE facilities_lds.nz_facilities IS
-'The nz_facilities table holds geometries originating from National Map facility polygons '
+'The nz_facilities table holds geometries originating from NationalMap facility polygons '
 'and authoritative source data.';
 COMMENT ON COLUMN facilities_lds.nz_facilities.facility_id IS
-'Unique identifier for each geometry.';
+'The unique identifier for each geometry.';
 COMMENT ON COLUMN facilities_lds.nz_facilities.external_facility_id IS
 'The unique identifier of this facility used by the authoritative source';
 COMMENT ON COLUMN facilities_lds.nz_facilities.name IS
@@ -49,8 +49,8 @@ COMMENT ON COLUMN facilities_lds.nz_facilities.estimated_occupancy IS
 COMMENT ON COLUMN facilities_lds.nz_facilities.last_modified IS
 'The most recent date on which any attribute or geometry that is part of the facility was modified.';
 COMMENT ON COLUMN facilities_lds.nz_facilities.internal IS
-'Used to identify features which will not be added to the LDS, such as teen parenting units which are part of a school.';
+'Identifies features which will not be added to the LDS, such as teen parenting units which are part of a school.';
 COMMENT ON COLUMN facilities_lds.nz_facilities.internal_comments IS
-'Used to internal information such as why being stored as internal only, when likely to open, where found information.';
+'Internal information such as why being stored as internal only, when likely to open, where found information.';
 COMMENT ON COLUMN facilities_lds.nz_facilities.shape IS
-'The geometry of the feature.';
+'The geometry of the facility represented as a MultiPolygon using NZTM2000 / EPSG 2193.';
