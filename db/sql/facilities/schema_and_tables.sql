@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS facilities.facilities (
     , estimated_occupancy integer DEFAULT 0
     , last_modified date DEFAULT ('now'::text)::date
     , internal boolean NOT NULL DEFAULT false
-    , internal_comments character varying(100) DEFAULT ''
+    , internal_comments character varying(250) DEFAULT ''
     , shape public.geometry(MultiPolygon, 2193) NOT NULL
 );
 
