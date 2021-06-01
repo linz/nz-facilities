@@ -11,9 +11,7 @@ COMMENT ON SCHEMA facilities_lds IS
 -- The nz_facilities table holds a copy of the facilities.facilities table
 -- minus the internal and internal_comments fields.
 
-DROP TABLE IF EXISTS facilities_lds.nz_facilities;
-
-CREATE TABLE facilities_lds.nz_facilities as
+CREATE TABLE IF NOT EXISTS facilities_lds.nz_facilities as
 SELECT
       facility_id
     , external_facility_id
@@ -25,7 +23,8 @@ SELECT
     , estimated_occupancy
     , last_modified
     , shape
-FROM facilities.facilities;
+FROM facilities.facilities
+WHERE internal IS NULL;
 
 CREATE INDEX shx_nz_facilities
 ON facilities_lds.nz_facilities USING gist (shape);
