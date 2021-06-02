@@ -11,7 +11,33 @@ COMMENT ON SCHEMA facilities_lds IS
 -- The nz_facilities table holds a copy of the facilities.facilities table
 -- minus the internal and internal_comments fields.
 
-CREATE TABLE IF NOT EXISTS facilities_lds.nz_facilities as
+DROP TABLE IF EXISTS facilities_lds.nz_facilities;
+
+CREATE TABLE IF NOT EXISTS facilities_lds.nz_facilities (
+      facility_id serial PRIMARY KEY
+    , external_facility_id character varying(80) DEFAULT ''
+    , name character varying(250) DEFAULT ''
+    , external_name character varying(250) DEFAULT ''
+    , use character varying(40) NOT NULL DEFAULT ''
+    , use_type character varying(150) DEFAULT ''
+    , use_subtype character varying(150) DEFAULT ''
+    , estimated_occupancy integer DEFAULT 0
+    , last_modified date DEFAULT ('now'::text)::date
+    , shape public.geometry(MultiPolygon, 2193) NOT NULL
+);
+
+INSERT INTO facilities_lds.nz_facilities(
+      facility_id
+    , external_facility_id
+    , name
+    , external_name
+    , use
+    , use_type
+    , use_subtype
+    , estimated_occupancy
+    , last_modified
+    , shape
+    )
 SELECT
       facility_id
     , external_facility_id
@@ -24,7 +50,7 @@ SELECT
     , last_modified
     , shape
 FROM facilities.facilities
-WHERE internal IS NULL;
+WHERE internal IS FALSE;
 
 CREATE INDEX shx_nz_facilities
-ON facilities_lds.nz_facilities USING gist (shape);
+    ON facilities_lds.nz_facilities USING gist (shape);
