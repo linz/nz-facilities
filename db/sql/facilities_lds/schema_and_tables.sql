@@ -26,31 +26,5 @@ CREATE TABLE IF NOT EXISTS facilities_lds.nz_facilities (
     , shape public.geometry(MultiPolygon, 2193) NOT NULL
 );
 
-INSERT INTO facilities_lds.nz_facilities(
-      facility_id
-    , external_facility_id
-    , name
-    , external_name
-    , use
-    , use_type
-    , use_subtype
-    , estimated_occupancy
-    , last_modified
-    , shape
-    )
-SELECT
-      facility_id
-    , external_facility_id
-    , name
-    , external_name
-    , use
-    , use_type
-    , use_subtype
-    , estimated_occupancy
-    , last_modified
-    , shape
-FROM facilities.facilities
-WHERE internal IS FALSE;
-
 CREATE INDEX shx_nz_facilities
     ON facilities_lds.nz_facilities USING gist (shape);
