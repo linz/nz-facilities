@@ -1,4 +1,4 @@
-NZ Buildings Data Dictionary
+NZ Facilities Data Dictionary
 ==================================
 
 Table of Contents:
@@ -9,6 +9,5 @@ Table of Contents:
 
    introduction
    published_data
-   internal_data
 
 

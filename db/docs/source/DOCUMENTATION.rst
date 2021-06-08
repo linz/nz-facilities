@@ -4,7 +4,7 @@ Documentation on SQL script setup for proper Read The Docs parsing
 Purpose
 -------------
 
-This document describes the requirements for properly formatting the SQL build scripts for this dataset to allow the automated parsing of these scripts by Read The Docs system and correctly generating the tables for the Building Outlines Data Dictionary.
+This document describes the requirements for properly formatting the SQL build scripts for this dataset to allow the automated parsing of these scripts by Read The Docs system and correctly generating the tables for the Facilities Data Dictionary.
 
 
 File Structure
@@ -19,22 +19,22 @@ File Structure
 
 .. code-block:: sql
 
-   /building_outlines/sql
-   /building_outlines/requirements-docs.txt
-   /building_outlines/setup.py
-   /building_outlines/docs/source/
-   /building_outlines/docs/source/_static
+   /nz-facilities/db/sql
+   /nz-facilities/requirements-docs.txt
+   /nz-facilities/setup.py
+   /nz-facilities/db/docs/source/
+   /nz-facilities/db/docs/source/_static
 
 
 Files required
 ------------------
 
-* Within the /building_outlines/docs/source/ folder, there must be an .rst file for each schema being parsed, with a name format of "<schema name>_schema.rst". 
+* Within the /nz-facilities/db/docs/source/ folder, there must be an .rst file for each schema being parsed, with a name format of "<schema name>_schema.rst". 
 * On the first line of each schema .rst file, there should be a line as shown here to give the file a name for referencing:
 
 ::
 
-   .. _buildings_schema:
+   .. _facilities_schema:
 
 * An index.rst file must exist with the names of the above mentioned schema .rst files listed in the toctree without the .rst extension:
 

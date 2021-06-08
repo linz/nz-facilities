@@ -691,7 +691,8 @@ def get_filenames():
     Read the path and file names of all of the SQL schema files in the /SQL folder
     including subfolders
     """
-    filenames = glob2.glob("../../sql/deploy/**/*")
+    filenames = glob2.glob("../../sql/**/*")
+    # filenames = glob2.glob("../../sql/deploy/**/*")
     schema_filenames = list(filenames)
     for name in filenames:
         if "schema" not in name:
