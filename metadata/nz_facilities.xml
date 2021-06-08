@@ -115,19 +115,19 @@
       </gmd:citation>
       <gmd:abstract>
         <gco:CharacterString>
-This dataset provides polygons of facilities within mainland New Zealand originally sourced in early 2021 from NationalMap. The current release only includes authoritative source updates for two USE types: Hospitals and Schools. Authoritative sources of these two types of attributes include the NZ Ministry of Health and NZ Ministry of Education.
+This dataset provides boundaries of facilities, currently hospitals and schools, within mainland New Zealand originally sourced in early 2021 from a combination of NationalMap and authoritative sources. Authoritative sources of these two types of attributes include the NZ Ministry of Health and NZ Ministry of Education.
 
-A facility polygon is a 2D representation of the perimeter of a facility or the active use area of a facility (currently only either hospitals or schools). Facility polygons in this dataset were used to apply hospital and school building name and use to the NZ Building outlines dataset on the LINZ Data Service. (___LINK___)
+A facility polygon is a 2D representation of the boundary of a facility area as it appears to be currently used. Facility boundaries in this dataset were used to apply hospital and school building name and use to the NZ Building outlines dataset published on the LINZ Data Service.
 
-A more detailed description of how NZ Facilities were used to support the attribution of NZ Building Outlines can be found in the NZ Facilities Data Dictionary <LINK>
+A more detailed description of NZ Facilities can be found in the NZ Facilities Data Dictionary [LINK]. This Data Dictionary also includes information on how NZ Facilities were used to support the attribution of NZ Building Outlines.
+
+NZ Facilities contains data sourced from NationalMap, Ministry of Education and Ministry of Health licensed for reuse under CC BY 4.0.
 
 **Related NZ Facilities data**
 
 [NZ Building Outlines ](https://data.linz.govt.nz/layer/101290) - provides current building outlines only, derived- from the latest LINZ aerial imagery.
 
 [NZ Building Outlines (All Sources)](https://data.linz.govt.nz/layer/101292) - contains all combinations of building outlines from multiple years of imagery that have existed since the beginning of this dataset, and the dates when each building outline existed in the associated aerial imagery.
-
-[NZ Building Outlines Lifecycle](https://data.linz.govt.nz/table/101291) - is related to the dataset above and stores the relationship between building outlines when one building is split into two or more building outlines, or when multiple building outlines are merged into a single outline.
 
 ---
 **APIs and web services**
@@ -304,24 +304,22 @@ For details see https://www.linz.govt.nz/data/licensing-and-using-data/attributi
         <gmd:LI_Lineage>
           <gmd:statement>
             <gco:CharacterString>
-**Source geometry**
-The original source of the NZ Facilities were derived from the NationalMap, NZ Ministry of Education and NZ Ministry of Health licensed for reuse under CC BY 4.0.
+**Source**
+NZ Facilities contains data sourced from NationalMap, Ministry of Education and Ministry of Health licensed for reuse under CC BY 4.0.
 
-**Accuracy Specification:**
-The NZ Facilities contain spatial detail reflective of the assumed groupings of buildings visible in LINZ aerial imagery associated with a specific NAME and USE type.
+Coordinates for named hospitals and schools supplied by the Ministry of Health and the Ministry of Education were matched to facility boundaries from NationalMap and used to verify locations and names between these sources. LINZ aerial imagery was used to assist in manually correcting some boundary extents. The assigned boundaries were then used to attribute names and uses to groups of buildings in the NZ Buildings [LINK] dataset.
 
-Using coordinates for named hospitals and schools supplied by both the Ministry of Health and the Ministry of Education, facility polygons from NationalMap were matched by name and distance to these authoritative sources and both automated an manual methods were used to verify locations and names between these sources and the NationalMap polygons. These assigned polygons were then used to attribute school and hospital names and uses to groups of buildings in the NZ Buildings <LINK> dataset.
-In this layer:
-• The FACILITY_ID provides an unique id for each facility
-• The NAME attribute conveys a facility name which has consistent naming convention applied. In some cases it may directly match the name provide by authoritative sources.
+**Attributes**
+• The FACILITY_ID provides a unique id for each facility.
+• The NAME attribute provides a facility name which has consistent naming convention applied. This name may directly match the name provide by the authoritative source.
 • The EXTERNAL_NAME attribute provides the facility name used by the authoritative source.
-• The USE attribute provides the generic use of the facility. Currently this is either hospital or school.
+• The USE attribute provides the generic use of the facility. For example, 'Hospital' or 'School'.
 • The USE_TYPE attribute is the type of use as defined by the authoritative source.
 • The USE_SUBTYPE attribute is the sub-type of use as defined by the authoritative source.
-• The ESTIMATED_OCCUPANCY attribute is an approximation of the occupancy of the facility from the authoritative source, and is a rounded-up integer if the authoritative source provided a range. This number may not include staff of the facility, but meant to convey the number of beds in hospitals or students in schools.
+• The ESTIMATED_OCCUPANCY attribute is an approximation of the occupancy of the facility from the authoritative source, where this is known. This number may not include staff of the facility, but provides for example, the number of beds in hospitals or students in schools.
 • The LAST_MODIFIED attribute is the most recent date on which any attribute or geometry of the facility was modified.
 
-Additional detail about this NZ Facility layer can be found in the NZ Facilities Data Dictionary <LINK>
+Additional detail about this NZ Facility layer can be found in the NZ Facilities Data Dictionary [LINK]
 
 
             </gco:CharacterString>
@@ -355,7 +353,6 @@ Additional detail about this NZ Facility layer can be found in the NZ Facilities
         <gco:CharacterString>Released by LINZ under Creative Commons Attribution 4.0 International (CC BY 4.0) with:
 Following Attribution:
 "Sourced from the LINZ Data Service and licensed for reuse under CC BY 4.0"
-"Contains data sourced from NationalMap, Ministry of Education and Ministry of Health licensed for reuse under CC BY 4.0."
 For details see https://www.linz.govt.nz/data/licensing-and-using-data/attributing-linz-data</gco:CharacterString>
       </gmd:useLimitation>
       <gmd:useConstraints>
