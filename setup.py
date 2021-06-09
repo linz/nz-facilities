@@ -29,5 +29,4 @@ setup(
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.8",
     ],
-    ["docutils==0.16"],
 )
