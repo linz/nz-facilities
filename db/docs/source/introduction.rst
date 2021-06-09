@@ -27,7 +27,7 @@ Description
 
 
 
-.. figure:: _static/facilities_10.png
+.. figure:: _static/facilities_diagram.png
    :scale: 100 %
    :alt: attribution of building outlines using facility polygons
 
