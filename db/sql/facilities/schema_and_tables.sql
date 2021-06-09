@@ -11,9 +11,9 @@ COMMENT ON SCHEMA facilities IS
 -- The facilities table holds a multipolygon geometry, originating from the authoritative source data
 CREATE TABLE IF NOT EXISTS facilities.facilities (
       facility_id serial PRIMARY KEY
-    , external_facility_id character varying(80) DEFAULT ''
+    , source_facility_id character varying(80) DEFAULT ''
     , name character varying(250) DEFAULT ''
-    , external_name character varying(250) DEFAULT ''
+    , source_name character varying(250) DEFAULT ''
     , use character varying(40) NOT NULL DEFAULT ''
     , use_type character varying(150) DEFAULT ''
     , use_subtype character varying(150) DEFAULT ''
@@ -31,11 +31,11 @@ COMMENT ON TABLE facilities.facilities IS
 'The facilities table holds geometries originating from authoritative source data.';
 COMMENT ON COLUMN facilities.facilities.facility_id IS
 'The unique identifier for each geometry.';
-COMMENT ON COLUMN facilities.facilities.external_facility_id IS
+COMMENT ON COLUMN facilities.facilities.source_facility_id IS
 'The unique identifier of this facility used by the authoritative source';
 COMMENT ON COLUMN facilities.facilities.name IS
 'The name of the facility.';
-COMMENT ON COLUMN facilities.facilities.external_name IS
+COMMENT ON COLUMN facilities.facilities.source_name IS
 'The name of the facility used by the authoritative source.';
 COMMENT ON COLUMN facilities.facilities.use IS
 'The generic use of the facility.';
