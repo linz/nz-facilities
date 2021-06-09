@@ -65,7 +65,7 @@
     </gmd:CI_ResponsibleParty>
   </gmd:contact>
   <gmd:dateStamp>
-    <gco:Date>2021-06-03</gco:Date>
+    <gco:Date>2021-06-11</gco:Date>
   </gmd:dateStamp>
   <gmd:metadataStandardName>
     <gco:CharacterString>ANZLIC Metadata Profile: An Australian/New Zealand Profile of AS/NZS ISO 19115:2005, Geographic information - Metadata</gco:CharacterString>
@@ -94,7 +94,7 @@
           <gmd:date>
             <gmd:CI_Date>
               <gmd:date>
-                <gco:Date>2021-06-03</gco:Date>
+                <gco:Date>2021-06-11</gco:Date>
               </gmd:date>
               <gmd:dateType>
                 <gmd:CI_DateTypeCode codeList="http://asdd.ga.gov.au/asdd/profileinfo/gmxCodelists.xml#CI_DateTypeCode" codeListValue="creation">creation</gmd:CI_DateTypeCode>
@@ -104,7 +104,7 @@
           <gmd:date>
             <gmd:CI_Date>
               <gmd:date>
-                <gco:Date>2021-06-03</gco:Date>
+                <gco:Date>2021-06-11</gco:Date>
               </gmd:date>
               <gmd:dateType>
                 <gmd:CI_DateTypeCode codeList="http://asdd.ga.gov.au/asdd/profileinfo/gmxCodelists.xml#CI_DateTypeCode" codeListValue="publication">publication</gmd:CI_DateTypeCode>
@@ -115,17 +115,17 @@
       </gmd:citation>
       <gmd:abstract>
         <gco:CharacterString>
-This dataset provides boundaries of facilities, currently hospitals and schools, within mainland New Zealand originally sourced in early 2021 from a combination of NationalMap and authoritative sources. Authoritative sources of these two types of attributes include the NZ Ministry of Health and NZ Ministry of Education.
+This dataset provides boundaries of facilities, currently hospitals and schools, within mainland New Zealand originally sourced in early 2021 from a combination of NationalMap and authoritative sources. Authoritative sources of these facility types include NZ Ministry of Health and NZ Ministry of Education.
 
-A facility is a 2D representation of the boundary of a facility area as it appears to be currently used. Facility boundaries in this dataset were used to apply hospital and school building name and use to the NZ Building outlines dataset published on the LINZ Data Service.
+A facility boundary is a 2D representation of the facility's land perimeter as it appears to be currently used. Facility boundaries in this dataset were used to apply hospital and school building names to the NZ Building outlines dataset published on the LINZ Data Service.
 
-A more detailed description of NZ Facilities can be found in the NZ Facilities Data Dictionary [LINK]. This Data Dictionary also includes information on how NZ Facilities were used to support the attribution of NZ Building Outlines.
+A more detailed description of NZ Facilities can be found in the [NZ Facilities Data Dictionary](https://nz-facilities.readthedocs.io/en/latest/introduction.html). This Data Dictionary also includes information on how NZ Facilities was used to support the attribution of NZ Building Outlines.
 
 NZ Facilities contains data sourced from [NationalMap](https://www.nationalmap.co.nz/), [Ministry of Education](https://www.educationcounts.govt.nz/) and [Ministry of Health](https://www.health.govt.nz/) licensed for reuse under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 **Related data**
 
-[NZ Building Outlines ](https://data.linz.govt.nz/layer/101290) - provides current building outlines only, derived- from the latest LINZ aerial imagery.
+[NZ Building Outlines](https://data.linz.govt.nz/layer/101290) - provides current building outlines only, derived- from the latest LINZ aerial imagery.
 
 [NZ Building Outlines (All Sources)](https://data.linz.govt.nz/layer/101292) - contains all combinations of building outlines from multiple years of imagery that have existed since the beginning of this dataset, and the dates when each building outline existed in the associated aerial imagery.
 
@@ -307,13 +307,13 @@ For details see https://www.linz.govt.nz/data/licensing-and-using-data/attributi
 **Source**
 NZ Facilities contains data sourced from [NationalMap](https://www.nationalmap.co.nz/), [Ministry of Education](https://www.educationcounts.govt.nz/) and [Ministry of Health](https://www.health.govt.nz/) licensed for reuse under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-Coordinates for named hospitals and schools supplied by the Ministry of Health and the Ministry of Education were matched to facility boundaries from NationalMap and used to verify locations and names between these sources. LINZ aerial imagery was used to assist in manually correcting some boundary extents. The assigned boundaries were then used to attribute names and uses to groups of buildings in the NZ Buildings [LINK] dataset.
+Coordinates for named hospitals and schools supplied by the Ministry of Health and the Ministry of Education were matched to facility boundaries from NationalMap and used to verify locations and names between these sources. LINZ aerial imagery was used to assist in manually correcting some boundary extents. The facility boundaries were then used to attribute names and uses to groups of buildings in the [NZ Building Outlines](https://data.linz.govt.nz/layer/101290) dataset.
 
 **Attributes**
 • The FACILITY_ID provides a unique id for each facility.
-• The EXTERNAL_facility_id provides the unique identifier of this facility used by the authoritative source.
+• The SOURCE_FACILITY_ID provides the facility unique identifier used by the authoritative source.
 • The NAME attribute provides a facility name which has consistent naming convention applied. This name may directly match the name provided by the authoritative source.
-• The EXTERNAL_NAME attribute provides the facility name used by the authoritative source.
+• The SOURCE_NAME attribute provides the facility name used by the authoritative source.
 • The USE attribute provides the generic use of the facility. For example, 'Hospital' or 'School'.
 • The USE_TYPE attribute is the type of use as defined by the authoritative source.
 • The USE_SUBTYPE attribute is the sub-type of use as defined by the authoritative source.
