@@ -115,9 +115,11 @@
       </gmd:citation>
       <gmd:abstract>
         <gco:CharacterString>
-This dataset provides boundaries of facilities, currently hospitals and schools, within mainland New Zealand originally sourced in early 2021 from a combination of NationalMap and authoritative sources. Authoritative sources of these facility types include NZ Ministry of Health and NZ Ministry of Education.
+This dataset provides boundaries of facilities, currently hospitals and schools, within mainland New Zealand originally sourced in early 2021 from a combination of NationalMap and authoritative sources, including NZ Ministry of Education and NZ Ministry of Health.
 
-A facility boundary is a 2D representation of the facility's land perimeter as it appears to be currently used. Facility boundaries in this dataset were used to apply hospital and school building names to the NZ Building outlines dataset published on the LINZ Data Service.
+A facility represents a particular activity such as a hospital or school. A facility boundary represents the 2D extent of the land which appears to be used by a facility. A facility boundary can be different to corresponding cadastral parcel polygons because a facility can span across multiple parcels or be located in only part of a parcel. For example, a parcel owned by the crown can include multiple schools and other facilities such as parks and reserves.
+
+Facility boundaries in this dataset were used to apply hospital and school building names to the NZ Building outlines dataset published on the LINZ Data Service.
 
 A more detailed description of NZ Facilities can be found in the [NZ Facilities Data Dictionary](https://nz-facilities.readthedocs.io/en/latest/introduction.html). This Data Dictionary also includes information on how NZ Facilities was used to support the attribution of NZ Building Outlines.
 
