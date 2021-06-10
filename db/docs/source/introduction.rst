@@ -30,59 +30,61 @@ NZ Facilities contains data sourced from `NationalMap <https://www.nationalmap.c
 
 The NZ Facilities data was produced by acquiring facility boundaries from NationalMap, and matching and verifying this against authoritative data from the Ministry of Health and the Ministry of Education. Finally the facility boundaries were used to assign name and use to NZ Building Outlines.
 
-.. figure:: _static/facilities_diagram.png
-   :scale: 100 %
-   :alt: attribution of building outlines using facility boundaries
+.. figure:: _static/overview.png
+   :scale: 60 %
+   :alt: an overview of the NZ Facilities creation process
 
-   Image 1. Example of process to attribute building outlines from authoritative source.
+   Image 1. An overview of the NZ Facilities creation process, from source data to attributed facility boundaries, and finally to assigned NZ Building Outlines.
+
 
 Source Data
-***************************
+---------------------------
 The source data for the NZ Facilities dataset comes from `NationalMap <https://www.nationalmap.co.nz>`_ Facility Boundaries, as well as `Ministry of Education <https://www.educationcounts.govt.nz>`_ and `Ministry of Health <https://www.health.govt.nz>`_ Authoritative points.
+
+.. figure:: _static/source_data.png
+   :scale: 60 %
+   :alt: source data for the NZ Facilities dataset
+
+   Image 2. Example of NationalMap facility boundaries and authoritative source points.
 
 
 Verifying Facilities
-***************************
+---------------------------
 The NZ Facilities data was produced by acquiring facility boundaries from NationalMap, and verifying this against authoritative point data from the Ministry of Health and the Ministry of Education.
-The process of verifying the NationalMap Facilities was accomplished by first matching names and locations to an authoritative point. The matches were checked for similarity of names and distance between locations. Those with disimilar names, or large distances, were investigated further and adjusted accordingly.
+The process of verifying the NationalMap Facilities was accomplished by first matching names and locations to an authoritative point. The matches were checked for similarity of names and distance between locations. Those with disimilar names, or large distances, were investigated further and adjusted accordingly. LINZ aerial imagery was used to assist in manually correcting some boundary extents.
 
 Assign Attributes
-***************************
+---------------------------
 name
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-A standardised name was created by applying a consistent naming convention to the authoritative name, for instance abbreviation such as P North modified to Palmerston North, and TKKM adjusted to Te Kura Kaupapa Maori. This standardised name was assigned to the facility boundary, for example:
-
+| A standardised name was created by applying a consistent naming convention to the authoritative name, for instance abbreviation such as P North modified to Palmerston North, and TKKM adjusted to Te Kura Kaupapa Maori. This standardised name was assigned to the facility boundary, for example:
 | *Sacred Heart Girls' College (New Plymouth)*
 | *Te Kura Kaupapa Māori o Takapau*
 | *Auckland City Hospital*
 
 source_name and source_facility_id
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The authoritative sources name and source id are assigned to the data to help users link the NZ Facilities to the authoritative data, for example:
-
+| The authoritative sources name and source id are assigned to the data to help users link the NZ Facilities to the authoritative data, for example:
 | *Sacred Heart Girls' College (N Plymouth)*, source id *174*
 | *TKKM o Takapau*, source id *1142*
 | *Auckland City Hospital*, source id *F03067-A*
 
 use
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Assign based on the facility and provides the generic use of the facility, for example:
-
+| Assign based on the facility and provides the generic use of the facility, for example:
 | *Hospital*
 | *School*
 
 use_type
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The main categories of a facility as defined by the authoritative source, for example:
-
+| The main categories of a facility as defined by the authoritative source, for example:
 | *Secondary (Year 7-15)*
 | *Full Primary*
 | *Public Hospital*
 
 use_subtype
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The additional subcategories of a facility as defined by the authoritative source, for example:
-
+| The additional subcategories of a facility as defined by the authoritative source, for example:
 | *Childrens health
 | *Maternity*
 | *Surgical*
@@ -96,58 +98,32 @@ last_modified
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The most recent date on which any attribute or geometry that is part of the facility was modified.
 
+.. figure:: _static/verifying.png
+   :scale: 60 %
+   :alt: Facility boundaries verified and attributes assinged
+
+   Image 3. Example of NZ Facility boundaries with verified standardised names from an authoritative source, and attributes assigned.
 
 Assign Name and Use to building outlines
-********************************************
-
-Facility boundaries in this dataset were used to apply hospital and school building names to the NZ Building outlines dataset published on the LINZ Data Service.
-
-Attributes
 ---------------------------
 
+Facility boundaries in this dataset were used to apply hospital and school building names to the NZ Building outlines dataset published on the LINZ Data Service.NZ Facilities and NZ Building Outlines were compared and any building outline whose centroid intersected with a facility boundary, was assign the name and use of that facility boundary.
 
-Source Data
-***************************
+.. figure:: _static/assign.png
+   :scale: 60 %
+   :alt: Example of the assignment of name and use to NZ Building Outlines using the NZ Facility boundaries
 
-
-
-
-Name & Use
-***************************
-
-The attributes ``name`` and ``use`` provide the building name and use for the following:
-
-* as sourced from `NZ Facilities dataset <https://data.linz.govt.nz/layer/XXXXX>`_, currently containing hospitals and schools. The name and use of the facilities have been applied to all Building Outlines where the building centroid intersects the NZ Facilities polygon.
-* as sourced from supermarket company information in 2020 and applied manually to individual buildings.
-
-
-.. figure:: _static/name_use.png
-   :scale: 30%
-   :alt: Examples of NZ Facilities
-
-   Image 3. Example of building outlines centroid intersection of NZ Facilities polygons
-
-
-
-
-
+   Image 4. Example of using NZ Facility boundaries to assign name and use to building outlines.
 
 Accuracy Specification
 ---------------------------
-
-
-
-Valid Geometry
----------------------------
-
 
 Formats
 ---------------------------
 
 Textual data uses UTF-8 character encoding.
 
-The source geometry of all spatial data uses NZGD2000 / New Zealand Transverse Mercator 2000 (EPSG 2193) as the spatial reference system.
-
+The source geometry of all spatial data uses NZGD2000 / New Zealand Transverse Mercator 2000 (EPSG 2193) as the spatial reference system. NZ Facility geometries are stored as MultiPolygons.
 
 
 Definitions
