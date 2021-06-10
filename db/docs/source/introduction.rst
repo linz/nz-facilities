@@ -43,7 +43,7 @@ authoritative point data of facility locations, as well as bo
 
 Source Data
 ***************************
-[NationalMap](https://www.nationalmap.co.nz/) Facility Boundaries, [Ministry of Education](https://www.educationcounts.govt.nz/) and [Ministry of Health](https://www.health.govt.nz/) Authoritative Points.
+The source data for the NZ Facilities dataset comes from `NationalMap <https://www.nationalmap.co.nz`_ Facility Boundaries, [Ministry of Education](https://www.educationcounts.govt.nz/) and [Ministry of Health](https://www.health.govt.nz/) Authoritative Points.
 
 
 Verifying Facilities
