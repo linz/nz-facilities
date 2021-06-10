@@ -22,18 +22,13 @@ The NZ Facility data described below represents boundaries of facilities, curren
 
 Description
 ---------------------------
---what is a facility
--- what is a facility polygon/ boundary
-A facility represents a particular activity, for example a school or hospital campus.
-A facility boundary represents the extent of the land being as it appears to be currently used by a facility.
 
-NZ Facilities contains data sourced from [NationalMap](https://www.nationalmap.co.nz/), [Ministry of Education](https://www.educationcounts.govt.nz/) and [Ministry of Health](https://www.health.govt.nz/) licensed for reuse under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+| A facility represents a particular activity such as a hospital or school. A facility boundary represents the 2D extent of the land which appears to be used by a facility.
+| A facility boundary can be different to corresponding cadastral parcel polygons because a facility can span across multiple parcels or be located in only part of a parcel. For example, a parcel owned by the crown can include multiple schools and other facilities such as parks and reserves.
+
+NZ Facilities contains data sourced from `NationalMap <https://www.nationalmap.co.nz>`_, `Ministry of Education <https://www.educationcounts.govt.nz>`_ and `Ministry of Health <https://www.health.govt.nz>`_ licensed for reuse under `CC BY 4.0 <https://creativecommons.org/licenses/by/4.0/>`_.
 
 The NZ Facilities data was produced by acquiring facility boundaries from NationalMap, and matching and verifying this against authoritative data from the Ministry of Health and the Ministry of Education. Finally the facility boundaries were used to assign name and use to NZ Building Outlines.
-
-authoritative point data of facility locations, as well as bo
--- diagram overview
--- diragram
 
 .. figure:: _static/facilities_diagram.png
    :scale: 100 %
@@ -43,7 +38,7 @@ authoritative point data of facility locations, as well as bo
 
 Source Data
 ***************************
-The source data for the NZ Facilities dataset comes from `NationalMap <https://www.nationalmap.co.nz>`_ Facility Boundaries, as well as `Ministry of Education <https://www.educationcounts.govt.nz`_ and `Ministry of Health <https://www.health.govt.nz`_ Authoritative points.
+The source data for the NZ Facilities dataset comes from `NationalMap <https://www.nationalmap.co.nz>`_ Facility Boundaries, as well as `Ministry of Education <https://www.educationcounts.govt.nz>`_ and `Ministry of Health <https://www.health.govt.nz>`_ Authoritative points.
 
 
 Verifying Facilities
@@ -55,41 +50,51 @@ Assign Attributes
 ***************************
 name
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-A standardised name was created by applying a consistent naming convention to the authoritative name, for instance abbreviation such as P North modified to Palmerston North, and TKKM adjusted to Te Kura Kaupapa Maori. This standardised name was assigned to the facility boundary.
-For example:
-Sacred Heart Girls' College (New Plymouth)
-Te Kura Kaupapa Māori o Takapau
-Auckland City Hospital
+A standardised name was created by applying a consistent naming convention to the authoritative name, for instance abbreviation such as P North modified to Palmerston North, and TKKM adjusted to Te Kura Kaupapa Maori. This standardised name was assigned to the facility boundary, for example:
+
+| *Sacred Heart Girls' College (New Plymouth)*
+| *Te Kura Kaupapa Māori o Takapau*
+| *Auckland City Hospital*
 
 source_name and source_facility_id
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The authoritative sources name and source id are assigned to the data to help users link the NZ Facilities to the authoritative data.
-174 - Sacred Heart Girls' College (N Plymouth)
-1142 - TKKM o Takapau
-F03067-A - Auckland City Hospital
+The authoritative sources name and source id are assigned to the data to help users link the NZ Facilities to the authoritative data, for example:
+
+| *Sacred Heart Girls' College (N Plymouth)*, source id *174*
+| *TKKM o Takapau*, source id *1142*
+| *Auckland City Hospital*, source id *F03067-A*
 
 use
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Assign based on the facility and provides the generic use of the facility. For example, 'Hospital' or 'School'.
+Assign based on the facility and provides the generic use of the facility, for example:
+
+| *Hospital*
+| *School*
 
 use_type
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The main categories of a facility as defined by the authoritative source.
+The main categories of a facility as defined by the authoritative source, for example:
 
-The FACILITY_ID provides a unique id for each facility.
-• The SOURCE_FACILITY_ID provides the facility unique identifier used by the authoritative source.
-• The NAME attribute provides a facility name which has consistent naming convention applied. This name may directly match the name provided by the authoritative source.
-• The SOURCE_NAME attribute provides the facility name used by the authoritative source.
-The USE attribute provides the generic use of the facility. For example, 'Hospital' or 'School'.
-• The USE_TYPE attribute is the type of use as defined by the authoritative source.
-• The USE_SUBTYPE attribute is the sub-type of use as defined by the authoritative source.
-• The ESTIMATED_OCCUPANCY attribute is an approximation of the occupancy of the facility from the authoritative source, where this is known. This number may not include staff of the facility, but provides for example, the number of beds in hospitals or students in schools.
-• The LAST_MODIFIED
+| *Secondary (Year 7-15)*
+| *Full Primary*
+| *Public Hospital*
+
+use_subtype
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The additional subcategories of a facility as defined by the authoritative source, for example:
+
+*Childrens health, Maternity, Surgical, Medical*
+
+estimated_occupancy
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The approximation of the occupancy of the facility from the authoritative source, where this is known. This number may not include staff of the facility, but provides for example, the number of beds in hospitals or students in schools.
+
+last_modified
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The most recent date on which any attribute or geometry that is part of the facility was modified.
 
 
--- points and polygons - description of this data
 
--- match - briefly describe matching
 
 -- assign - how assigned to building outlines
 
