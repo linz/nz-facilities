@@ -55,6 +55,8 @@ The process of verifying the NationalMap Facilities was accomplished by first ma
 
 Assign Attributes
 ---------------------------
+The NZ Facilities attributes are a combination of the authoritative source attributes of the facility and standardardised source attributes.
+
 name
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 | A standardised name was created by applying a consistent naming convention to the authoritative name, for instance abbreviation such as P North modified to Palmerston North, and TKKM adjusted to Te Kura Kaupapa Maori. This standardised name was assigned to the facility boundary, for example:
@@ -63,7 +65,7 @@ name
 | *Auckland City Hospital*
 
 source_name and source_facility_id
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 | The authoritative sources name and source id are assigned to the data to help users link the NZ Facilities to the authoritative data, for example:
 | *Sacred Heart Girls' College (N Plymouth)*, source id *174*
 | *TKKM o Takapau*, source id *1142*
@@ -105,7 +107,7 @@ The most recent date on which any attribute or geometry that is part of the faci
    Image 3. Example of NZ Facility boundaries with verified standardised names from an authoritative source, and attributes assigned.
 
 Assign Name and Use to building outlines
----------------------------
+-----------------------------------------
 
 Facility boundaries in this dataset were used to apply hospital and school building names to the NZ Building outlines dataset published on the LINZ Data Service.NZ Facilities and NZ Building Outlines were compared and any building outline whose centroid intersected with a facility boundary, was assign the name and use of that facility boundary.
 
