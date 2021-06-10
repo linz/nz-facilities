@@ -32,7 +32,7 @@ The NZ Facilities data was produced by acquiring facility boundaries from Nation
 
 .. figure:: _static/facilities_diagram.png
    :scale: 100 %
-   :alt: attribution of building outlines using facility polygons
+   :alt: attribution of building outlines using facility boundaries
 
    Image 1. Example of process to attribute building outlines from authoritative source.
 
@@ -83,7 +83,10 @@ use_subtype
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The additional subcategories of a facility as defined by the authoritative source, for example:
 
-*Childrens health, Maternity, Surgical, Medical*
+| *Childrens health
+| *Maternity*
+| *Surgical*
+| *Medical*
 
 estimated_occupancy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -94,10 +97,8 @@ last_modified
 The most recent date on which any attribute or geometry that is part of the facility was modified.
 
 
-
-
--- assign - how assigned to building outlines
-
+Assign Name and Use to building outlines
+********************************************
 
 Facility boundaries in this dataset were used to apply hospital and school building names to the NZ Building outlines dataset published on the LINZ Data Service.
 
@@ -116,7 +117,7 @@ Name & Use
 
 The attributes ``name`` and ``use`` provide the building name and use for the following:
 
-* as sourced from NZ Facilities dataset <LINK>, currently containing hospitals and schools. The name and use of the facilities have been applied to all Building Outlines where the building centroid intersects the NZ Facilities polygon.
+* as sourced from `NZ Facilities dataset <https://data.linz.govt.nz/layer/XXXXX>`_, currently containing hospitals and schools. The name and use of the facilities have been applied to all Building Outlines where the building centroid intersects the NZ Facilities polygon.
 * as sourced from supermarket company information in 2020 and applied manually to individual buildings.
 
 
