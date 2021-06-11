@@ -72,7 +72,7 @@ name
 +----------------------------------------------+----------------------------------------------+
 | TKKM o Takapau                               | Te Kura Kaupapa Māori o Takapau              |
 +----------------------------------------------+----------------------------------------------+
-| Rudolf Steiner School (Christchurch)         | Rudolf Steiner School (Chch)                 |
+| Rudolf Steiner School (Chch)                 | Rudolf Steiner School (Christchurch)         |
 +----------------------------------------------+----------------------------------------------+
 
 source_name and source_facility_id
