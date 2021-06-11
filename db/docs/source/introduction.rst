@@ -111,7 +111,7 @@ use_type
 | Sacred Heart Girls' College (N Plymouth)     |   School Type Secondary (Year 7-15)        |  Secondary (Year 7-15)  |
 +----------------------------------------------+--------------------------------------------+-------------------------+
 | Sacred Heart School (Dunedin)                |   School Type Contributing                 |     Contributing        |
-+----------------------------------------------+---------------------------------+------------------------------------+
++----------------------------------------------+--------------------------------------------+-------------------------+
 | Taumarunui Hospital and Family Health Team   | Certification Service Type Public Hospital |   Public Hospital       |
 +----------------------------------------------+--------------------------------------------+-------------------------+
 | Belverdale Hospital                          | Certification Service Type NGO Hospital    |     NGO Hospital        |
