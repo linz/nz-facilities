@@ -131,7 +131,7 @@ use_subtype
 
 estimated_occupancy
 ^^^^^^^^^^^^^^^^^^^
-The approximate occupancy of the facility from the authoritative source, where this is known. This number may not include staff of the facility, but provides for example, the number of beds in hospitals or students in schools.
+| The approximate occupancy of the facility from the authoritative source, where this is known. This number may not include staff of the facility, but provides for example, the number of beds in hospitals or students in schools.
 +----------------------------------------------+--------------------------------------------+-------------------------+
 |               **Source Name**                |         **Source Occupancy**               | **estimated_occupancy** |
 +----------------------------------------------+--------------------------------------------+-------------------------+
@@ -140,7 +140,7 @@ The approximate occupancy of the facility from the authoritative source, where t
 | Taumarunui Hospital and Family Health Team   | Total Beds 14                              |        14               |
 +----------------------------------------------+--------------------------------------------+-------------------------+
 | Belverdale Hospital                          | Total Beds 15                              |        15               |
-+----------------------------------------------+------------------------------- ------------+-------------------------+
++----------------------------------------------+--------------------------------------------+-------------------------+
 
 last_modified
 ^^^^^^^^^^^^^
