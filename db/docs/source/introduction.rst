@@ -13,7 +13,7 @@ Background
 
 The NZ Facilities dataset described here has been used to enrich the attributes for the existing `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_, as well as provides additional open data for various stakeholders to map risk modelling, environmental assessment, urban development, resilience planning in addition to the visualization and physical location of facilities and the buildings within them.
 
-Prior to publishing the NZ Facilities dataset, the `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_ dataset contained name and use attributes of only supermarkets. The NZ Facilities dataset containing hospital and school facilities was used to help add hospital and school names and uses to the building outlines dataset. These additional attributes will significantly improve this dataset for a variety of stakeholders for national resiliency purposes.
+Prior to publishing the NZ Facilities dataset, the `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_ dataset contained name and use attributes of only supermarkets. The NZ Facilities dataset containing hospital and school facilities was used to help add hospital and school names and uses to the building outlines dataset.
 
 The NZ Facilities data described below represents boundaries of facilities, currently hospitals and schools, within mainland New Zealand originally sourced in early 2021 from a combination of NationalMap and authoritative sources. Authoritative sources of these two types of attributes include the NZ Ministry of Health and NZ Ministry of Education.
 
