@@ -77,35 +77,70 @@ name
 
 source_name and source_facility_id
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-| The authoritative source's name and identifier are assigned to the data to help users link the NZ Facilities to the authoritative data, for example:
-| *Sacred Heart Girls' College (N Plymouth)*, source id *174*
-| *TKKM o Takapau*, source id *1142*
-| *Auckland City Hospital*, source id *F03067-A*
+| The authoritative source's name and identifier are assigned to the data as *source_name* and *source_facility_id* to help users link the NZ Facilities to the authoritative source data, for example:
++----------------------------------------------+---------------------------------+-------------------------+
+|               **Source Name**                |    **Source identifier**        |  **source_facility_id** |
++----------------------------------------------+---------------------------------+-------------------------+
+| Sacred Heart Girls' College (N Plymouth)     |   School Number 174             |          174            |
++----------------------------------------------+---------------------------------+-------------------------+
+| TKKM o Takapau                               |   School Number 1142            |         1142            |
++----------------------------------------------+---------------------------------+-------------------------+
+| Belverdale Hospital                          |   HPI FacId F0F065-A            |        F0F065-A         |
++----------------------------------------------+---------------------------------+-------------------------+
 
 use
 ^^^
-| Assign based on the facility and provides the generic use of the facility, for example:
-| *Hospital*
-| *School*
+| Assigned use based on the facility and provides the generic use of the facility, for example:
++----------------------------------------------+--------------------------------------------+-------------------------+
+|               **Source Name**                |         **Source use**                     |       **use**           |
++----------------------------------------------+--------------------------------------------+-------------------------+
+| Sacred Heart Girls' College (N Plymouth)     |   School Type Secondary (Year 7-15)        |        School           |
++----------------------------------------------+--------------------------------------------+-------------------------+
+| Taumarunui Hospital and Family Health Team   | Certification Service Type Public Hospital |        Hospital         |
++----------------------------------------------+---------------------------------+------------------------------------+
+| Belverdale Hospital                          | Certification Service Type NGO Hospital    |        Hospital         |
++----------------------------------------------+---------------------------------+------------------------------------+
+
 
 use_type
 ^^^^^^^^
-| The main categories of a facility as defined by the authoritative source, for example:
-| *Secondary (Year 7-15)*
-| *Full Primary*
-| *Public Hospital*
+| The main categories of a facility as defined by the authoritative source, assigned to the data as *use_type*, for example:
++----------------------------------------------+--------------------------------------------+-------------------------+
+|               **Source Name**                |         **Source Use Type**                |     **use_type**        |
++----------------------------------------------+--------------------------------------------+-------------------------+
+| Sacred Heart Girls' College (N Plymouth)     |   School Type Secondary (Year 7-15)        |  Secondary (Year 7-15)  |
++----------------------------------------------+--------------------------------------------+-------------------------+
+| Sacred Heart School (Dunedin)                |   School Type Contributing                 |     Contributing        |
++----------------------------------------------+---------------------------------+------------------------------------+
+| Taumarunui Hospital and Family Health Team   | Certification Service Type Public Hospital |   Public Hospital       |
++----------------------------------------------+---------------------------------+------------------------------------+
+| Belverdale Hospital                          | Certification Service Type NGO Hospital    |     NGO Hospital        |
++----------------------------------------------+---------------------------------+------------------------------------+
+
 
 use_subtype
 ^^^^^^^^^^^
-| The additional subcategories of a facility as defined by the authoritative source, for example:
-| *Childrens health*
-| *Maternity*
-| *Surgical*
-| *Medical*
+| The additional subcategories of a facility as defined by the authoritative source, assigned to the data as *use_subtype*, for example:
++----------------------------------------------+--------------------------------------------+-------------------------+
+|               **Source Name**                |         **Source Use Sub-Type**            |     **use_subtype**     |
++----------------------------------------------+--------------------------------------------+-------------------------+
+| Taumarunui Hospital and Family Health Team   | Service Types Public Maternity, Medical    |   Maternity, Medical    |
++----------------------------------------------+---------------------------------+------------------------------------+
+| Belverdale Hospital                          | Service Types Surgical                     |        Surgical         |
++----------------------------------------------+---------------------------------+------------------------------------+
 
 estimated_occupancy
 ^^^^^^^^^^^^^^^^^^^
 The approximate occupancy of the facility from the authoritative source, where this is known. This number may not include staff of the facility, but provides for example, the number of beds in hospitals or students in schools.
++----------------------------------------------+--------------------------------------------+-------------------------+
+|               **Source Name**                |         **Source Occupancy**               | **estimated_occupancy** |
++----------------------------------------------+--------------------------------------------+-------------------------+
+| Sacred Heart School (Dunedin)                | Total School Roll 33                       |        33               |
++----------------------------------------------+--------------------------------------------+-------------------------+
+| Taumarunui Hospital and Family Health Team   | Total Beds 14                              |        14               |
++----------------------------------------------+--------------------------------------------+-------------------------+
+| Belverdale Hospital                          | Total Beds 15                              |        15               |
++----------------------------------------------+---------------------------------+------------------------------------+
 
 last_modified
 ^^^^^^^^^^^^^
@@ -115,7 +150,7 @@ The most recent date on which any attribute or geometry that is part of the faci
 
 
 Assigning Name and Use to `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_
-----------------------------------------------
+-----------------------------------------------------------------------------------------------------------------
 
 Facility boundaries in this dataset were used to apply hospital and school building names to the `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_ dataset published on the LINZ Data Service. NZ Facilities and `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_ were compared and any building outline whose centroid intersected with a facility boundary, was assign the name and use of that facility boundary.
 
