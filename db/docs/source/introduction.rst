@@ -6,7 +6,7 @@ Introduction
 Purpose
 -------
 
-This document provides detailed metadata (data dictionary) for the NZ Facilities data published on the LINZ Data Service: https://data.linz.govt.nz/layer/xxxx
+This document provides detailed metadata (data dictionary) for the NZ Facilities data published on the LINZ Data Service: https://data.linz.govt.nz/layer/105568
 
 Background
 ----------
@@ -64,10 +64,16 @@ The NZ Facilities attributes are derived from the authoritative source attribute
 
 name
 ^^^^
-| A standardised name was created by applying a consistent naming convention to the authoritative name, for instance abbreviation such as P North modified to Palmerston North, and TKKM adjusted to Te Kura Kaupapa Maori. This standardised name was assigned to the facility boundary, for example:
-| *Sacred Heart Girls' College (New Plymouth)*
-| *Te Kura Kaupapa Māori o Takapau*
-| *Auckland City Hospital*
+| A standardised name was created by applying a consistent naming convention to the authoritative name. This standardised name was assigned to the facility boundary, for example:
++----------------------------------------------+----------------------------------------------+
+|               **Source Name**                |             **Standardised Name**            |
++----------------------------------------------+----------------------------------------------+
+| Sacred Heart Girls' College (N Plymouth)     | Sacred Heart Girls' College (New Plymouth)   |
++----------------------------------------------+----------------------------------------------+
+| TKKM o Takapau                               | Te Kura Kaupapa Māori o Takapau              |
++----------------------------------------------+----------------------------------------------+
+| Rudolf Steiner School (Christchurch)         | Rudolf Steiner School (Chch)                 |
++----------------------------------------------+----------------------------------------------+
 
 source_name and source_facility_id
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -139,6 +145,12 @@ Definitions
 | Term              | Description                                                          |
 +===================+======================================================================+
 | LDS               | LINZ Data Service                                                    |
++-------------------+----------------------------------------------------------------------+
+| Facility          | A place of a particular activity such as a hospital or school, which |
+|                   | is often more than one building.                                     |
++-------------------+----------------------------------------------------------------------+
+| Facility boundary | A boundary representing the extent of the land which appears to be   |
+|                   | used by a facility.                                                  |
 +-------------------+----------------------------------------------------------------------+
 | Building          | A structure generally permanent in nature which has been constructed |
 |                   | to meet a specific objective (e.g. housing, storage, and workplace). |
