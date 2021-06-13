@@ -91,15 +91,15 @@ source_name and source_facility_id
 use
 ^^^
 | Assigned use based on the facility and provides the generic use of the facility, for example:
-+----------------------------------------------+--------------------------------------------+-------------------------+
-|               **Source Name**                |         **Source use**                     |       **use**           |
-+----------------------------------------------+--------------------------------------------+-------------------------+
-| Sacred Heart Girls' College (N Plymouth)     |   School Type Secondary (Year 7-15)        |        School           |
-+----------------------------------------------+--------------------------------------------+-------------------------+
-| Taumarunui Hospital and Family Health Team   | Certification Service Type Public Hospital |        Hospital         |
-+----------------------------------------------+--------------------------------------------+-------------------------+
-| Belverdale Hospital                          | Certification Service Type NGO Hospital    |        Hospital         |
-+----------------------------------------------+--------------------------------------------+-------------------------+
++----------------------------------------------+-------------------------+
+|               **Source Name**                |       **use**           |
++----------------------------------------------+-------------------------+
+| Sacred Heart Girls' College (N Plymouth)     |        School           |
++----------------------------------------------+-------------------------+
+| Taumarunui Hospital and Family Health Team   |        Hospital         |
++----------------------------------------------+-------------------------+
+| Belverdale Hospital                          |        Hospital         |
++----------------------------------------------+-------------------------+
 
 
 use_type
