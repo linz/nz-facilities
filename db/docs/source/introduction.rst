@@ -6,7 +6,7 @@ Introduction
 Purpose
 -------
 
-This document provides detailed metadata (data dictionary) for the NZ Facilities data published on the LINZ Data Service: https://data.linz.govt.nz/layer/105568
+This document provides detailed metadata (data dictionary) for the NZ Facilities data published on the LINZ Data Service: https://data.linz.govt.nz/layer/105588
 
 Background
 ----------

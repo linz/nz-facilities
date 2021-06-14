@@ -5,7 +5,7 @@ Published Data
 ================================
 
 The data described below represents facilities data openly available on the LINZ Data Service (LDS):
-https://data.linz.govt.nz/layer/105568
+https://data.linz.govt.nz/layer/105588
 
 Schema: {{ schema_gen_facilities_lds["name"] }}
 --------------------------------------------------------
