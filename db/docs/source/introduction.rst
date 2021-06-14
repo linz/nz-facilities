@@ -46,6 +46,12 @@ The process of verifying the NationalMap Facilities was accomplished by first ma
 
    Image 2. Example of facility boundaries and authoritative source points which need to be verified.
 
+.. figure:: _static/verifying.png
+   :scale: 60 %
+   :alt: verifying data for the NZ Facilities dataset
+
+   Image 2. Example of verifying and selecting authoritative source points.
+
 
 Assigning Attributes
 --------------------
