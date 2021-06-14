@@ -50,7 +50,7 @@ The process of verifying the NationalMap Facilities was accomplished by first ma
    :scale: 60 %
    :alt: verifying data for the NZ Facilities dataset
 
-   Image 2. Example of verifying and matching names with facility locations.
+   Image 3. Example of verifying and matching names with facility locations.
 
 
 Assigning Attributes
@@ -62,7 +62,7 @@ The NZ Facilities attributes are derived from the authoritative source attribute
    :scale: 60 %
    :alt: Facility boundaries verified and attributes assinged
 
-   Image 3. Example of NZ Facility boundaries with verified standardised names from an authoritative source, and attributes assigned.
+   Image 4. Example of NZ Facility boundaries with verified standardised names from an authoritative source, and attributes assigned.
 
 name
 ^^^^
@@ -172,7 +172,7 @@ Facility boundaries in this dataset were used to apply hospital and school build
    :scale: 60 %
    :alt: Example of the assignment of name and use to `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_ using the NZ Facilities boundaries
 
-   Image 4. Example of using NZ Facilities boundaries to assign name and use to building outlines.
+   Image 5. Example of using NZ Facilities boundaries to assign name and use to building outlines.
 
 
 Formats
