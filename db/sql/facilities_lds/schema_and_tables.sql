@@ -14,7 +14,7 @@ COMMENT ON SCHEMA facilities_lds IS
 DROP TABLE IF EXISTS facilities_lds.nz_facilities;
 
 CREATE TABLE IF NOT EXISTS facilities_lds.nz_facilities (
-      facility_id serial PRIMARY KEY
+      facility_id integer PRIMARY KEY
     , source_facility_id character varying(80) DEFAULT ''
     , name character varying(250) DEFAULT ''
     , source_name character varying(250) DEFAULT ''

@@ -30,7 +30,7 @@ The NZ Facilities data was produced by acquiring facility boundaries from Nation
    :scale: 60 %
    :alt: an overview of the NZ Facilities creation process
 
-   Image 1. An overview of the NZ Facilities creation process, from source data to attributed facility boundaries, and finally to assigned `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_.
+   Image 1. An overview of the NZ Facilities creation process, from source data to attributed facility boundaries, and finally to assigned NZ Building Outlines.
 
 
 Source Data
@@ -51,12 +51,19 @@ The NZ Facilities data was produced by acquiring facility boundaries from Nation
 
 The process of verifying the NationalMap Facilities was accomplished by first matching names and locations to an authoritative point. The matches were checked for similarity of names and distance between locations. Those with disimilar names, or large distances, were investigated further and adjusted accordingly. LINZ Aerial Imagery was used to assist in manually correcting some boundary extents.
 
+.. figure:: _static/verifying.png
+   :scale: 60 %
+   :alt: Facility boundaries verified and attributes assinged
+
+   Image 3. Example of verified facility boundaries.
+
+
 Assigning Attributes
 --------------------
 
 The NZ Facilities attributes are derived from the authoritative source attributes and have been standardised.
 
-.. figure:: _static/verifying.png
+.. figure:: _static/assign.png
    :scale: 60 %
    :alt: Facility boundaries verified and attributes assinged
 
@@ -64,7 +71,9 @@ The NZ Facilities attributes are derived from the authoritative source attribute
 
 name
 ^^^^
+
 | A standardised name was created by applying a consistent naming convention to the authoritative name. This standardised name was assigned to the facility boundary, for example:
+
 +----------------------------------------------+----------------------------------------------+
 |               **Source Name**                |             **Standardised Name**            |
 +----------------------------------------------+----------------------------------------------+
@@ -77,7 +86,9 @@ name
 
 source_name and source_facility_id
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
 | The authoritative source's name and identifier are assigned to the data as *source_name* and *source_facility_id* to help users link the NZ Facilities to the authoritative source data, for example:
+
 +----------------------------------------------+---------------------------------+-------------------------+
 |               **Source Name**                |    **Source identifier**        |  **source_facility_id** |
 +----------------------------------------------+---------------------------------+-------------------------+
@@ -90,7 +101,9 @@ source_name and source_facility_id
 
 use
 ^^^
+
 | Assigned use based on the facility and provides the generic use of the facility, for example:
+
 +----------------------------------------------+-------------------------+
 |               **Source Name**                |       **use**           |
 +----------------------------------------------+-------------------------+
@@ -104,7 +117,9 @@ use
 
 use_type
 ^^^^^^^^
+
 | The main categories of a facility as defined by the authoritative source, assigned to the data as *use_type*, for example:
+
 +----------------------------------------------+--------------------------------------------+-------------------------+
 |               **Source Name**                |         **Source Use Type**                |     **use_type**        |
 +----------------------------------------------+--------------------------------------------+-------------------------+
@@ -120,7 +135,9 @@ use_type
 
 use_subtype
 ^^^^^^^^^^^
+
 | The additional subcategories of a facility as defined by the authoritative source, assigned to the data as *use_subtype*, for example:
+
 +----------------------------------------------+--------------------------------------------+-------------------------+
 |               **Source Name**                |         **Source Use Sub-Type**            |     **use_subtype**     |
 +----------------------------------------------+--------------------------------------------+-------------------------+
@@ -131,7 +148,9 @@ use_subtype
 
 estimated_occupancy
 ^^^^^^^^^^^^^^^^^^^
+
 | The approximate occupancy of the facility from the authoritative source, where this is known. This number may not include staff of the facility, but provides for example, the number of beds in hospitals or students in schools.
+
 +----------------------------------------------+--------------------------------------------+-------------------------+
 |               **Source Name**                |         **Source Occupancy**               | **estimated_occupancy** |
 +----------------------------------------------+--------------------------------------------+-------------------------+
@@ -154,7 +173,7 @@ Assigning Name and Use to `NZ Building Outlines <https://data.linz.govt.nz/layer
 
 Facility boundaries in this dataset were used to apply hospital and school building names to the `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_ dataset published on the LINZ Data Service. NZ Facilities and `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_ were compared and any building outline whose centroid intersected with a facility boundary, was assign the name and use of that facility boundary.
 
-.. figure:: _static/assign.png
+.. figure:: _static/assign_name_and_use.png
    :scale: 60 %
    :alt: Example of the assignment of name and use to `NZ Building Outlines <https://data.linz.govt.nz/layer/101290-nz-building-outlines/>`_ using the NZ Facilities boundaries
 
@@ -172,9 +191,6 @@ The source geometry of all spatial data uses NZGD2000 / New Zealand Transverse M
 
 Definitions
 -----------
-
-.. table::
-   :class: manual
 
 +-------------------+----------------------------------------------------------------------+
 | Term              | Description                                                          |
