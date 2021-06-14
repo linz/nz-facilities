@@ -178,7 +178,7 @@ html_last_updated_fmt = "%B %d, %Y"
 # html_split_index = False
 
 # If true, links to the reST sources are added to the pages.
-# html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 # html_show_sphinx = True
@@ -258,7 +258,13 @@ latex_use_parts = True
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, "facilities_data_dictionary", u"facilities_data_dictionary", [author], 1)
+    (
+        master_doc,
+        "facilities_data_dictionary",
+        u"facilities_data_dictionary",
+        [author],
+        1,
+    )
 ]
 
 # If true, show URL addresses after external links.
@@ -470,9 +476,7 @@ def get_column_comments(column_str, file_content):
                 foreign_key_comment = foreign_search.group(2)
                 schema_named, table_named = schema_and_table.split(".")
                 hyphens = table_named.replace("_", "-")
-                if (
-                    schema_check == "facilities"
-                ):
+                if schema_check == "facilities":
                     template_url = "`{schema_table} <{site_url}internal_data.html#table-{table_name_hyphens}>`_"
                     foreign_link = template_url.format(
                         schema_table=schema_and_table_strip,
