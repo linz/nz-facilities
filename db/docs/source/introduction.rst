@@ -50,7 +50,7 @@ The process of verifying the NationalMap Facilities was accomplished by first ma
    :scale: 60 %
    :alt: verifying data for the NZ Facilities dataset
 
-   Image 2. Example of verifying and selecting authoritative source points.
+   Image 2. Example of verifying and matching names with facility locations.
 
 
 Assigning Attributes
