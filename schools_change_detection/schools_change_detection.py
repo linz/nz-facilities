@@ -14,12 +14,12 @@
     - Geom (based on distance MOE point and Facilities polygon)
     * Occupancy not checked for now as every school had a different estimated occupancy *
     
-    
-    Intially created October 2023 by RClarke
-    
     Future alterations suggested:
     - Exception list
     - Input JSON file containing DB conn details
+    
+    History:
+    5/10/2023 - Created - RClarke
     
 """
 import argparse
