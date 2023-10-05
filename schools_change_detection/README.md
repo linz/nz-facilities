@@ -5,7 +5,7 @@ Returns a geopackage containing information about updates, deletions and additio
 
 ## Before you begin
 
-This script is best executed in Ubuntu or using WSL2 in Windows using Conda for dependency management.  
+This script is best executed using Conda for dependency management in Ubuntu or WSL2 in Windows.
 
 ### Conda 
 ##### Install Miniconda
@@ -21,11 +21,11 @@ This script is best executed in Ubuntu or using WSL2 in Windows using Conda for 
 * Follow through the prompts to install Miniconda.
 * Say yes to the option to run conda init at the end of the installer.
 * Close and reopen your terminal window after installing conda for it to recognise conda command
-* By default, the version of python installed in the base conda environment will take precedence over the system python when simply running python3 in the shell. To disable this behaviour, and allow using the system python by default, unless you have specifically activated a conda environment, run:
+* By default, the version of python installed in the base conda environment will take precedence over the system python when simply running `python` in the shell. To disable this behaviour, and allow using the system python by default, unless you have specifically activated a conda environment, run:
     ```
     conda config --set auto_activate_base false
     ```
-* Confirm the behaviour is as expected by running which python3 which should be /usr/bin/python3. (You may need to reopen your terminal window after running the conda config command for it to take effect).
+* Confirm the behaviour is as expected by running `which python` which should be `/usr/bin/python`. (You may need to reopen your terminal window after running the conda config command for it to take effect).
 ##### Create conda environment
 * Create a new conda environment by running:
     ```
@@ -55,14 +55,14 @@ Check for changes within the MoE schools data which need to be applied to the NZ
 options:
   -h, --help            show this help message and exit
   -t {file,db}, --type {file,db}
-                        Flag indicating whether the facilities source type is an OGR readable file or a PostgreSQL DB (default: None)
+                        Flag indicating whether the facilities source type is an OGR readable file or a PostgreSQL DB
   -i <STRING>, --input <STRING>
                         If the facilties source type is 'file', then this should contain the PATH to the source file (it must be an OGR readable format). If source type is 'db', then this should contain a JSON
-                        formatted string containing the values for these keys: name, host, port, user, password, schema, table. (default: None)
+                        formatted string containing the values for these keys: name, host, port, user, password, schema, table.
   -o <PATH>, --output <PATH>
-                        Output directory which source files will be copied to and final reports outputted to. (default: /mnt/c/dev/nz-facilities/schools_change_detection/output)
-  --overwrite           Overwrite the specified output file if it already exists. (default: False)
-  --quiet               Do not print any logging messages to screen. (default: False)
+                        Output directory which source files will be copied to and final reports outputted to. 
+  --overwrite           Overwrite the specified output file if it already exists.
+  --quiet               Do not print any logging messages to screen.
 ```
 
 ### To execute
@@ -74,25 +74,25 @@ options:
 
 * To see available options, first run:
     ```
-    python3 schools_change_detection.py --help
+    python schools_change_detection.py --help
     ```
 
 * To execute with NZ Facilities from a Geopackage:
     ```
-    python3 schools_change_detection.py -t file -i <PATH> -o <PATH>
+    python schools_change_detection.py -t file -i <PATH> -o <PATH>
     ```
 
 * To execute with NZ Facilities from a Database:
     ```
-    python3 schools_change_detection.py -t db -i '{"name": "<database_name>", "host": "<host>", "port":"<port>", "user":"<username>", "password": "<password>", "schema": "<db schema>", "table":"<table name>"}'  -o <PATH>
+    python schools_change_detection.py -t db -i '{"name": "<database_name>", "host": "<host>", "port":"<port>", "user":"<username>", "password": "<password>", "schema": "<db schema>", "table":"<table name>"}'  -o <PATH>
     ```
 
 * To execute without having the logging printed to screen:
     ```
-    python3 schools_change_detection.py -t file -i <PATH> -o <PATH> --quiet
+    python schools_change_detection.py -t file -i <PATH> -o <PATH> --quiet
     ```
 
 * To execute and automatically overwrite output direcotry:
     ```
-    python3 schools_change_detection.py -t file -i <PATH> -o <PATH> --ovwerwrite
+    python schools_change_detection.py -t file -i <PATH> -o <PATH> --ovwerwrite
     ```
