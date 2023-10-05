@@ -1,5 +1,5 @@
 """
-    Schools Change dection for updating NZ Facilities.
+    Schools Change detection for updating NZ Facilities.
     
     This script takes NZ Facilities data from either a file or database source.
     
