@@ -82,9 +82,9 @@ options:
     python3 schools_change_detection.py -t file -i <PATH> -o <PATH>
     ```
 
-* To execute with NZ Faclities from a Database:
+* To execute with NZ Facilities from a Database:
     ```
-    python3 schools_change_detection.py -t db -i -i '{"name": "<database_name>", "host": "<host>", "port":"<port>", "user":"<username>", "password": "<password>", "schema": "<db schema>", "table":"<table name>"}'  -o <PATH>
+    python3 schools_change_detection.py -t db -i '{"name": "<database_name>", "host": "<host>", "port":"<port>", "user":"<username>", "password": "<password>", "schema": "<db schema>", "table":"<table name>"}'  -o <PATH>
     ```
 
 * To execute without having the logging printed to screen:
