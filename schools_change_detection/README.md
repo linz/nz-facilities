@@ -32,7 +32,9 @@ This script is best executed in Ubuntu or using WSL2 in Windows using Conda for 
     conda env create -n schools_change_detection --file environment.yml
     ```
 
-#### Dependencies
+## schools_change_detection.py
+
+### Dependencies
 
 * Python 3.10
 * Pyproj 3.4
@@ -43,7 +45,7 @@ This script is best executed in Ubuntu or using WSL2 in Windows using Conda for 
 * Requests
 * Copy
 
-### TLDR
+### Help
 
 ```
 usage: schools_change_detection.py [-h] -t {file,db} -i <STRING> -o <PATH> [--overwrite] [--quiet]
@@ -63,7 +65,7 @@ options:
   --quiet               Do not print any logging messages to screen. (default: False)
 ```
 
-#### To execute
+### To execute
 
 * Activate Conda environment:
     ```
@@ -72,30 +74,25 @@ options:
 
 * To see available options, first run:
     ```
-    python3 /path/to/script/schools_change_detection.py --help
+    python3 schools_change_detection.py --help
     ```
 
 * To execute with NZ Facilities from a Geopackage:
     ```
-    python3 /path/to/script/attribute_checker.py -t file -i <PATH> -o <PATH>
+    python3 schools_change_detection.py -t file -i <PATH> -o <PATH>
     ```
 
 * To execute with NZ Faclities from a Database:
     ```
-    python3 /path/to/script/attribute_checker.py -t db -i -i '{"name": "<database_name>", "host": "<host>", "port":"<port>", "user":"<username>", "password": "<password>", "schema": "<db schema>", "table":"<table name>"}'  -o <PATH>
+    python3 schools_change_detection.py -t db -i -i '{"name": "<database_name>", "host": "<host>", "port":"<port>", "user":"<username>", "password": "<password>", "schema": "<db schema>", "table":"<table name>"}'  -o <PATH>
     ```
 
 * To execute without having the logging printed to screen:
     ```
-    python3 /path/to/script/attribute_checker.py -t file -i <PATH> -o <PATH> --quiet
+    python3 schools_change_detection.py -t file -i <PATH> -o <PATH> --quiet
     ```
 
 * To execute and automatically overwrite output direcotry:
     ```
-    python3 /path/to/script/attribute_checker.py -t file -i <PATH> -o <PATH> --ovwerwrite
-    ```
-
-* The default directory for the log file is the current working directory. Specify an alternative destination by:
-    ```
-    python3 /path/to/script/attribute_checker.py <PATH> --logfile <PATH TO LOGFILE>
+    python3 schools_change_detection.py -t file -i <PATH> -o <PATH> --ovwerwrite
     ```
