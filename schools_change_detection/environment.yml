@@ -1,0 +1,13 @@
+name: schools_change_detection
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pyproj=3.4
+  - psycopg2
+  - fiona=1.9
+  - shapely=2.0
+  - tqdm=4.*
+  - requests
+  - copy
