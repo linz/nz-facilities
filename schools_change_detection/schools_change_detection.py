@@ -54,9 +54,7 @@ logger: logging.Logger = logging.getLogger("schools_change_dectection")
 def setup_logging() -> None:
     """Set up logging"""
     logger.setLevel(logging.DEBUG)
-    log_formatter = logging.Formatter(
-        fmt="{asctime} {levelname:8} {message}", datefmt="%Y-%m-%d %H:%M:%S", style="{"
-    )
+    log_formatter = logging.Formatter(fmt="{asctime} {levelname:8} {message}", datefmt="%Y-%m-%d %H:%M:%S", style="{")
     if not QUIET:
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(log_formatter)
@@ -296,20 +294,14 @@ class FacilitiesSchool(Source):
         else:
             # PARSE UPDATE
             ## change status to update where if any of the update related checks are false
-            if not all(
-                result for check, result in check_results.items() if check != "remove"
-            ):
+            if not all(result for check, result in check_results.items() if check != "remove"):
                 self.change_action = "update"
                 if not check_results["attributes"]:
                     self.sql = self.generate_update_sql(moe_match)
 
                 ## append description with each update that is needed
                 self.change_description = ", ".join(
-                    [
-                        check
-                        for check, result in check_results.items()
-                        if not result and check != "remove"
-                    ]
+                    [check for check, result in check_results.items() if not result and check != "remove"]
                 )
 
     def generate_update_sql(self, moe_match: MOESchool) -> str:
@@ -368,15 +360,10 @@ def verify_facilities_db_json(facilities_db_json: str) -> str | None:
 
         ## check all keys are valid according to schema
         if extra_fields := dbconn_json.keys() - valid_fields.keys():
-            raise ValueError(
-                f"'{extra_fields}' not a valid JSON key for facilties db. "
-                "Valid keys are: {valid_keys}"
-            )
+            raise ValueError(f"'{extra_fields}' not a valid JSON key for facilties db. " "Valid keys are: {valid_keys}")
         ## check for missing keys
         if missing_fields := valid_fields.keys() - dbconn_json.keys():
-            raise ValueError(
-                f"'{missing_fields}' is missing from JSON string. Required keys are: {valid_keys}"
-            )
+            raise ValueError(f"'{missing_fields}' is missing from JSON string. Required keys are: {valid_keys}")
 
         return dbconn_json
     else:
@@ -393,13 +380,9 @@ def verify_output_dir(output_dir: Path, overwrite: bool) -> Path:
     raised, the supplied directory will be returned.
     """
     if not output_dir.parent.exists():
-        raise FatalError(
-            f"Parent of specified output directory does not exist: {output_dir.parent}"
-        )
+        raise FatalError(f"Parent of specified output directory does not exist: {output_dir.parent}")
     if not output_dir.parent.is_dir():
-        raise FatalError(
-            f"Parent of specified output directory is not a directory: {output_dir.parent}"
-        )
+        raise FatalError(f"Parent of specified output directory is not a directory: {output_dir.parent}")
     if output_dir.exists() and overwrite is False:
         answer = input(
             f"Output directory {output_dir} already exists. "
@@ -411,6 +394,7 @@ def verify_output_dir(output_dir: Path, overwrite: bool) -> Path:
             overwrite = True
         else:
             raise FatalError("Output directory already exists")
+    # TODO: fails if overwrite is passed but directory doesn't yet exist
     if overwrite is True:
         try:
             shutil.rmtree(output_dir)
@@ -494,11 +478,9 @@ def load_file_source(file: Path) -> Dict:
                         facilities_use=feature["properties"]["use"],
                         facilities_subtype=feature["properties"]["use_subtype"],
                         last_modified=feature["properties"]["last_modified"],
-                        geom=feature["geometry"],
+                        geom=feature["geometry"].__geo_interface__,
                     )
-                    list_of_school_facilities[
-                        facilities_school.source_id
-                    ] = facilities_school
+                    list_of_school_facilities[facilities_school.source_id] = facilities_school
 
         return list_of_school_facilities
     except Exception as error:
@@ -531,9 +513,7 @@ def load_db_source(dbconn_json: str) -> List[FacilitiesSchool]:
             cursor.execute(query)
             features = cursor.fetchall()
 
-            for feature in tqdm(
-                features, disable=QUIET, total=len(features), unit="facilities"
-            ):
+            for feature in tqdm(features, disable=QUIET, total=len(features), unit="facilities"):
                 geom = json.loads(feature["shape"])
                 del geom["crs"]
                 facilities_school = FacilitiesSchool(
@@ -548,9 +528,7 @@ def load_db_source(dbconn_json: str) -> List[FacilitiesSchool]:
                     last_modified=feature["last_modified"],
                     geom=geom,
                 )
-                list_of_school_facilities[
-                    facilities_school.source_id
-                ] = facilities_school
+                list_of_school_facilities[facilities_school.source_id] = facilities_school
 
         except OperationalError as error:
             print(f"The error '{error}' occurred")
@@ -570,9 +548,7 @@ def request_moe_api() -> List[MOESchool]:
     params = {"sql": f"{MOE_SQL}"}
     response = requests.get(MOE_ENDPOINT, params=params, timeout=10)
     if response.status_code != 200:
-        raise FatalError(
-            f"Request to API returned: Status Code {response.status_code}, {response.reason}"
-        )
+        raise FatalError(f"Request to API returned: Status Code {response.status_code}, {response.reason}")
 
     list_of_moe_schools = {}
 
@@ -607,9 +583,7 @@ def make_point(lat: float, long: float) -> str:
     Creates a Point using the lat and long from provided and reproject it
     to NZTM(EPSG:2193)
     """
-    transformer = pyproj.Transformer.from_crs(
-        EPSG_4326, EPSG_2193, always_xy=True
-    ).transform
+    transformer = pyproj.Transformer.from_crs(EPSG_4326, EPSG_2193, always_xy=True).transform
     new_point = transform(transformer, Point(long, lat))
     return new_point
 
@@ -641,26 +615,18 @@ def filter_moe_schools(
                         [
                             school.geom["coordinates"]
                             for school in unfiltered_moe_schools.values()
-                            if school.source_id != unfiltered_school_id
-                            and school.geom is not None
+                            if school.source_id != unfiltered_school_id and school.geom is not None
                         ]
                     )
 
                     # Makes a shapely point out of the current unfiltered school
-                    unfiltered_school_point = Point(
-                        unfiltered_school.geom["coordinates"]
-                    )
+                    unfiltered_school_point = Point(unfiltered_school.geom["coordinates"])
 
                     # Get nearest point to unfiltered school from multipoint.
-                    nearest_pt = nearest_points(
-                        unfiltered_school_point, other_moe_schools
-                    )
+                    nearest_pt = nearest_points(unfiltered_school_point, other_moe_schools)
 
                     # Measure distance and determine if school is to be excluded or not.
-                    if (
-                        unfiltered_school_point.distance(nearest_pt[1])
-                        >= TEEN_UNIT_DISTANCE
-                    ):
+                    if unfiltered_school_point.distance(nearest_pt[1]) >= TEEN_UNIT_DISTANCE:
                         filtered_moe_schools[unfiltered_school_id] = unfiltered_school
                     else:
                         continue
@@ -777,14 +743,10 @@ def main(
     save_layers_to_gpkg(output_file, facilities, "nz_facilities", "nz-facilities")
 
     logger.info("Adding MOE Schools layer")
-    save_layers_to_gpkg(
-        output_file, unfiltered_moe_schools, "moe_schools", "moe-schools"
-    )
+    save_layers_to_gpkg(output_file, unfiltered_moe_schools, "moe_schools", "moe-schools")
 
     logger.info("Adding filtered MOE Schools layer")
-    save_layers_to_gpkg(
-        output_file, filtered_moe_schools, "moe_schools", "moe-schools-filtered"
-    )
+    save_layers_to_gpkg(output_file, filtered_moe_schools, "moe_schools", "moe-schools-filtered")
 
     logger.info("Adding New MOE Schools layer")
     save_layers_to_gpkg(output_file, new_moe_schools, "moe_schools", "moe-schools-new")
@@ -806,10 +768,7 @@ if __name__ == "__main__":
         dest="source_type",
         choices=["file", "db"],
         required=True,
-        help=(
-            "Flag indicating whether the facilities source type is "
-            "an OGR readable file or a PostgreSQL DB"
-        ),
+        help=("Flag indicating whether the facilities source type is " "an OGR readable file or a PostgreSQL DB"),
     )
     PARSER.add_argument(
         "-i",
@@ -831,9 +790,7 @@ if __name__ == "__main__":
         dest="output_dir",
         type=Path,
         default=os.path.join(os.getcwd(), "output"),
-        help=(
-            "Output directory which source files will be copied to and final reports outputted to."
-        ),
+        help=("Output directory which source files will be copied to and final reports outputted to."),
     )
     PARSER.add_argument(
         "--overwrite",
