@@ -3,11 +3,10 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10
-  - pyproj=3.4
-  - psycopg2
-  - fiona=1.9
-  - shapely=2.0
-  - tqdm=4.*
-  - requests
-  - copy
+  - python=3
+  - fiona=1
+  - shapely=2
+  - pyproj=3
+  - requests=2
+  - psycopg2=2
+  - tqdm=4
