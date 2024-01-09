@@ -1,27 +1,27 @@
 """
-    Schools Change detection for updating NZ Facilities.
-    
-    This script takes NZ Facilities data from either a file or database source.
-    
-    Checks the schools within that source against the data downloaded from the MOE Schools API.
-    
-    It then outputs a geopackage containing the unfiltered MOE data, filtered MOE data, and the
-    NZ Facilities data annotated with update suggestions. 
-    
-    Attributes being compared:
-    - Source Name
-    - Source Type
-    - Geom (based on distance MOE point and Facilities polygon)
-    * Occupancy not checked for now as every school had a different estimated occupancy *
-    
-    Future alterations suggested:
-    - Exception list
-    - Input JSON file containing DB conn details
-    
-    History:
-    5/10/2023 - Created - RClarke
-    
+Schools Change detection for updating NZ Facilities.
+
+This script takes NZ Facilities data from either a file or database source.
+Checks the schools within that source against the data downloaded from the MOE
+Schools API. It then outputs a geopackage containing the unfiltered MOE data,
+filtered MOE data, and the NZ Facilities data annotated with update suggestions.
+
+Attributes being compared:
+- Source Name
+- Source Type
+- Geom (based on distance MOE point and Facilities polygon)
+
+Occupancy not checked for now as every school
+had a different estimated occupancy.
+
+Future alterations suggested:
+- Exception list
+- Input JSON file containing DB conn details
+
+History:
+5/10/2023 - Created - RClarke
 """
+
 import argparse
 import copy
 import json
@@ -48,7 +48,7 @@ from tqdm import tqdm
 # Set up logging #
 ##################
 
-logger: logging.Logger = logging.getLogger("schools_change_dectection")
+logger: logging.Logger = logging.getLogger("schools_change_detection")
 
 
 def setup_logging() -> None:
@@ -140,8 +140,9 @@ FACILITIES_FILTER = "WHERE use = 'School'"
 EPSG_2193 = pyproj.CRS("EPSG:2193")
 EPSG_4326 = pyproj.CRS("EPSG:4326")
 
-DISTANCE_FROM_FACLITY = 30
+DISTANCE_FROM_FACILITY = 30
 TEEN_UNIT_DISTANCE = 100
+
 
 ############################################
 # Exceptions, Customised classes and alias #
@@ -184,13 +185,13 @@ class Source:
 
     def check_distance_polygon(self, other: "Source") -> bool:
         """
-        Mearsure the distance between this school and another school
+        Measure the distance between this school and another school
         """
         if self.geom is None or other.geom is None:
             return None
         else:
             distance_from_source = shape(self.geom).distance(shape(other.geom))
-            return distance_from_source <= DISTANCE_FROM_FACLITY
+            return distance_from_source <= DISTANCE_FROM_FACILITY
 
     def check_occupancy(self, other: "Source") -> bool:
         """
@@ -288,18 +289,18 @@ class FacilitiesSchool(Source):
         Parse the analysis results
         """
         # PARSE REMOVE
-        ## change status to remove
+        # change status to remove
         if check_results["remove"]:
             self.change_action = "remove"
         else:
             # PARSE UPDATE
-            ## change status to update where if any of the update related checks are false
+            # change status to update where if any of the update related checks are false
             if not all(result for check, result in check_results.items() if check != "remove"):
                 self.change_action = "update"
                 if not check_results["attributes"]:
                     self.sql = self.generate_update_sql(moe_match)
 
-                ## append description with each update that is needed
+                # append description with each update that is needed
                 self.change_description = ", ".join(
                     [check for check, result in check_results.items() if not result and check != "remove"]
                 )
@@ -344,7 +345,7 @@ def verify_input_facilities_file(file: Path) -> Path | None:
 def verify_facilities_db_json(facilities_db_json: str) -> str | None:
     """
     Validates the JSON string passed in by the user. It must be formatted
-    correclty It must also contain all, and only, the fields required for
+    correctly It must also contain all, and only, the fields required for
     the db connection.
     """
     if SOURCE_TYPE == "db":
@@ -358,10 +359,10 @@ def verify_facilities_db_json(facilities_db_json: str) -> str | None:
         valid_fields = DBCONN_SCHEMA["properties"]
         valid_keys = ", ".join(f'"{field}"' for field in valid_fields)
 
-        ## check all keys are valid according to schema
+        # check all keys are valid according to schema
         if extra_fields := dbconn_json.keys() - valid_fields.keys():
-            raise ValueError(f"'{extra_fields}' not a valid JSON key for facilties db. " "Valid keys are: {valid_keys}")
-        ## check for missing keys
+            raise ValueError(f"'{extra_fields}' not a valid JSON key for facilities db. " "Valid keys are: {valid_keys}")
+        # check for missing keys
         if missing_fields := valid_fields.keys() - dbconn_json.keys():
             raise ValueError(f"'{missing_fields}' is missing from JSON string. Required keys are: {valid_keys}")
 
@@ -539,7 +540,7 @@ def load_db_source(dbconn_json: str) -> List[FacilitiesSchool]:
 
 def request_moe_api() -> List[MOESchool]:
     """
-    Access MOE API and retreive school records.
+    Access MOE API and retrieve school records.
 
     If response status code is not 200, a FatalError exception will be raised.
 
@@ -704,8 +705,8 @@ def compare_schools(
 
 
 def main(
-    faclities_input_file: Path,
-    faclities_db_conn: str,
+    facilities_input_file: Path,
+    facilities_db_conn: str,
     output_dir: Path,
 ) -> None:
     """
@@ -717,18 +718,18 @@ def main(
 
     # Load facilities
     if SOURCE_TYPE == "file":
-        logger.info("Loading facilities from %s", faclities_input_file)
-        facilities = load_file_source(faclities_input_file)
+        logger.info("Loading facilities from %s", facilities_input_file)
+        facilities = load_file_source(facilities_input_file)
     elif SOURCE_TYPE == "db":
         logger.info("Loading facilities from DB")
-        facilities = load_db_source(faclities_db_conn)
+        facilities = load_db_source(facilities_db_conn)
 
-    # Load MOE Schooles
+    # Load MOE Schools
     logger.info("Accessing MOE API")
     unfiltered_moe_schools = request_moe_api()
 
     # Create Output file
-    output_filename = "schools_change_dectection.gpkg"
+    output_filename = "schools_change_detection.gpkg"
     output_file = os.path.join(output_dir, output_filename)
 
     logger.info("Filtering MOE Schools")
@@ -768,7 +769,7 @@ if __name__ == "__main__":
         dest="source_type",
         choices=["file", "db"],
         required=True,
-        help=("Flag indicating whether the facilities source type is " "an OGR readable file or a PostgreSQL DB"),
+        help="Flag indicating whether the facilities source type is " "an OGR readable file or a PostgreSQL DB",
     )
     PARSER.add_argument(
         "-i",
@@ -777,7 +778,7 @@ if __name__ == "__main__":
         dest="source_details",
         required=True,
         help=(
-            "If the facilties source type is 'file', then this should contain "
+            "If the facilities source type is 'file', then this should contain "
             "the PATH to the source file (it must be an OGR readable format). "
             "If source type is 'db', then this should contain a JSON formatted string "
             "containing the values for these keys: name, host, port, user, password, schema, table."
@@ -790,7 +791,7 @@ if __name__ == "__main__":
         dest="output_dir",
         type=Path,
         default=os.path.join(os.getcwd(), "output"),
-        help=("Output directory which source files will be copied to and final reports outputted to."),
+        help="Output directory which source files will be copied to and final reports outputted to.",
     )
     PARSER.add_argument(
         "--overwrite",
