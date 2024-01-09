@@ -26,13 +26,11 @@ import argparse
 import copy
 import json
 import logging
-import os
-import shutil
 import sys
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import fiona
 import psycopg2
@@ -143,6 +141,7 @@ EPSG_4326 = pyproj.CRS("EPSG:4326")
 DISTANCE_FROM_FACILITY = 30
 TEEN_UNIT_DISTANCE = 100
 
+QUIET = False
 
 ############################################
 # Exceptions, Customised classes and alias #
@@ -154,6 +153,7 @@ class FatalError(Exception):
 
 
 GeoRecord = Dict[str, Dict[str, Any]]
+SourceKind = Literal["file", "db"]
 
 
 @dataclass
@@ -327,84 +327,61 @@ class FacilitiesSchool(Source):
 ########################
 
 
-def verify_input_facilities_file(file: Path) -> Path | None:
+def validate_input_arg_file(input_arg: str) -> Path:
     """
     Validates supplied input file path. Must both exist and be a file.
     If either of these is not True, will raise a FatalError exception.
     Returns the same Path that was supplied.
     """
-    if SOURCE_TYPE == "file":
-        if not file.exists():
-            raise FatalError(f"{file} does not exist")
-        if not file.is_file():
-            raise FatalError(f"{file} is not a file")
-        return file
-    return None
+    file = Path(input_arg)
+    if not file.exists():
+        raise FatalError(f"{file} does not exist")
+    if not file.is_file():
+        raise FatalError(f"{file} is not a file")
+    return file
 
 
-def verify_facilities_db_json(facilities_db_json: str) -> str | None:
+def validate_input_arg_db(input_arg: str) -> str:
     """
-    Validates the JSON string passed in by the user. It must be formatted
-    correctly It must also contain all, and only, the fields required for
-    the db connection.
+    Validates the JSON string passed in by the user. It must be
+    formatted correctly and contain all, and only, the fields required
+    for the db connection.
     """
-    if SOURCE_TYPE == "db":
-        # Validate JSON Format
-        try:
-            dbconn_json = json.loads(facilities_db_json)
-        except ValueError as error:
-            raise ValueError("Invalid JSON") from error
-
-        # Validate JSON keys are the ones we want for the db connection
-        valid_fields = DBCONN_SCHEMA["properties"]
-        valid_keys = ", ".join(f'"{field}"' for field in valid_fields)
-
-        # check all keys are valid according to schema
-        if extra_fields := dbconn_json.keys() - valid_fields.keys():
-            raise ValueError(f"'{extra_fields}' not a valid JSON key for facilities db. " "Valid keys are: {valid_keys}")
-        # check for missing keys
-        if missing_fields := valid_fields.keys() - dbconn_json.keys():
-            raise ValueError(f"'{missing_fields}' is missing from JSON string. Required keys are: {valid_keys}")
-
-        return dbconn_json
-    else:
-        return None
+    # Parse JSON
+    try:
+        dbconn_json = json.loads(input_arg)
+    except ValueError as error:
+        raise FatalError("Invalid JSON") from error
+    # Validate JSON keys are the ones we want for the db connection
+    valid_fields = DBCONN_SCHEMA["properties"]
+    valid_keys = ", ".join(f'"{field}"' for field in valid_fields)
+    # Check all keys are valid according to schema
+    if extra_fields := dbconn_json.keys() - valid_fields.keys():
+        raise FatalError(f"'{extra_fields}' not a valid JSON key for facilities db. " "Valid keys are: {valid_keys}")
+    # Check for missing keys
+    if missing_fields := valid_fields.keys() - dbconn_json.keys():
+        raise FatalError(f"'{missing_fields}' is missing from JSON string. Required keys are: {valid_keys}")
+    return dbconn_json
 
 
-def verify_output_dir(output_dir: Path, overwrite: bool) -> Path:
+def validate_output_arg(output_arg: Path, overwrite: bool) -> Path:
     """
-    Validates supplied output directory path. Must both exists and be a directory.
-    If any of these is not true, will raise a FatalError exception. If the directory
-    already exists and the overwrite argument is False, will prompt the user if they wish to delete
-    the file. If they do not answer yes, a FatalError exception will be raised. If they answer yes,
-    or the overwrite argument was True, the directory will be deleted. If an exception was not
-    raised, the supplied directory will be returned.
+    Validates the supplied output file path. Must be a file ending in .gpkg,
+    in a directory which exists, but which doesn't itself exist unless
+    overwrite is True. If any of these tests fail, a FatalError exception
+    will be raised.
     """
-    if not output_dir.parent.exists():
-        raise FatalError(f"Parent of specified output directory does not exist: {output_dir.parent}")
-    if not output_dir.parent.is_dir():
-        raise FatalError(f"Parent of specified output directory is not a directory: {output_dir.parent}")
-    if output_dir.exists() and overwrite is False:
-        answer = input(
-            f"Output directory {output_dir} already exists. "
-            f"Do you want to delete the directory before continuing? "
-            f"Type Y to delete file, or any other value to abort: "
-        )
-        answer = answer.strip().lower()
-        if answer == "y":
-            overwrite = True
-        else:
-            raise FatalError("Output directory already exists")
-    # TODO: fails if overwrite is passed but directory doesn't yet exist
-    if overwrite is True:
-        try:
-            shutil.rmtree(output_dir)
-        except PermissionError as error:
-            raise FatalError(
-                f"Unable to remove output directory {output_dir}: {error} \nAre there files inside open in QGIS?"
-            ) from error
-
-    return output_dir
+    if not output_arg.is_file():
+        raise FatalError(f"Specified output file is not a file: {output_arg}")
+    if not output_arg.parent.exists():
+        raise FatalError(f"Parent directory of specified output file does not exist: {output_arg.parent}")
+    if not output_arg.parent.is_dir():
+        raise FatalError(f"Parent of specified output file is not a directory: {output_arg.parent}")
+    if not output_arg.suffix == '.gpkg':
+        raise FatalError(f"Specified output file does not end in .gpkg: {output_arg}")
+    if output_arg.exists() and overwrite is False:
+        raise FatalError(f"Specified output file already exists. To overwrite, rerun with --overwrite.")
+    return output_arg
 
 
 ####################
@@ -705,32 +682,25 @@ def compare_schools(
 
 
 def main(
-    facilities_input_file: Path,
-    facilities_db_conn: str,
-    output_dir: Path,
+    source_kind: SourceKind,
+    source: Path | str,
+    output: Path,
 ) -> None:
     """
     Takes facilities location as an input and path to output.
     """
-    # Create output directory
-    logger.info("Creating output directory at %s", output_dir)
-    os.mkdir(output_dir)
 
     # Load facilities
-    if SOURCE_TYPE == "file":
-        logger.info("Loading facilities from %s", facilities_input_file)
-        facilities = load_file_source(facilities_input_file)
-    elif SOURCE_TYPE == "db":
+    if source_kind == "file":
+        logger.info("Loading facilities from %s", source)
+        facilities = load_file_source(source)
+    elif source_kind == "db":
         logger.info("Loading facilities from DB")
-        facilities = load_db_source(facilities_db_conn)
+        facilities = load_db_source(source)
 
     # Load MOE Schools
     logger.info("Accessing MOE API")
     unfiltered_moe_schools = request_moe_api()
-
-    # Create Output file
-    output_filename = "schools_change_detection.gpkg"
-    output_file = os.path.join(output_dir, output_filename)
 
     logger.info("Filtering MOE Schools")
     filtered_moe_schools = filter_moe_schools(copy.deepcopy(unfiltered_moe_schools))
@@ -739,18 +709,18 @@ def main(
     logger.info("Analysing datasets")
     new_moe_schools = compare_schools(facilities, filtered_moe_schools)
 
-    logger.info("Creating output geopackage at %s", output_file)
+    logger.info("Creating output geopackage at %s", output)
     logger.info("Adding NZ Facilities layer")
-    save_layers_to_gpkg(output_file, facilities, "nz_facilities", "nz-facilities")
+    save_layers_to_gpkg(output, facilities, "nz_facilities", "nz-facilities")
 
     logger.info("Adding MOE Schools layer")
-    save_layers_to_gpkg(output_file, unfiltered_moe_schools, "moe_schools", "moe-schools")
+    save_layers_to_gpkg(output, unfiltered_moe_schools, "moe_schools", "moe-schools")
 
     logger.info("Adding filtered MOE Schools layer")
-    save_layers_to_gpkg(output_file, filtered_moe_schools, "moe_schools", "moe-schools-filtered")
+    save_layers_to_gpkg(output, filtered_moe_schools, "moe_schools", "moe-schools-filtered")
 
     logger.info("Adding New MOE Schools layer")
-    save_layers_to_gpkg(output_file, new_moe_schools, "moe_schools", "moe-schools-new")
+    save_layers_to_gpkg(output, new_moe_schools, "moe_schools", "moe-schools-new")
 
 
 ###################
@@ -766,7 +736,7 @@ if __name__ == "__main__":
     PARSER.add_argument(
         "-t",
         "--type",
-        dest="source_type",
+        dest="source_kind",
         choices=["file", "db"],
         required=True,
         help="Flag indicating whether the facilities source type is " "an OGR readable file or a PostgreSQL DB",
@@ -775,7 +745,6 @@ if __name__ == "__main__":
         "-i",
         "--input",
         metavar="<STRING>",
-        dest="source_details",
         required=True,
         help=(
             "If the facilities source type is 'file', then this should contain "
@@ -788,10 +757,9 @@ if __name__ == "__main__":
         "-o",
         "--output",
         metavar="<PATH>",
-        dest="output_dir",
         type=Path,
-        default=os.path.join(os.getcwd(), "output"),
-        help="Output directory which source files will be copied to and final reports outputted to.",
+        default=Path.cwd() / "schools_change_detection.gpkg",
+        help="Output file location. Must be a valid path a file ending in .gpkg.",
     )
     PARSER.add_argument(
         "--overwrite",
