@@ -23,14 +23,14 @@ History:
 """
 
 import argparse
-import copy
 import json
 import logging
 import sys
 from dataclasses import dataclass
 from datetime import date
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, ClassVar, Literal, NamedTuple, Union
 
 import fiona
 import psycopg2
@@ -38,7 +38,8 @@ import pyproj
 import requests
 from fiona.crs import CRS
 from psycopg2 import OperationalError, extras
-from shapely.geometry import MultiPoint, Point, mapping, shape
+from shapely.geometry import MultiPoint, Point, shape
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points, transform
 from tqdm import tqdm
 
@@ -76,8 +77,8 @@ DBCONN_SCHEMA = {
     },
     "additionalProperties": False,
 }
-FILESCHEMA = None
-OUTPUT_SCHEMAS: Dict[str, Dict[str, Union[str, Dict[str, str]]]] = {
+
+OUTPUT_SCHEMAS: dict[str, dict[str, Union[str, dict[str, str]]]] = {
     "nz_facilities": {
         "geometry": "MultiPolygon",
         "properties": {
@@ -138,10 +139,13 @@ FACILITIES_FILTER = "WHERE use = 'School'"
 EPSG_2193 = pyproj.CRS("EPSG:2193")
 EPSG_4326 = pyproj.CRS("EPSG:4326")
 
-DISTANCE_FROM_FACILITY = 30
-TEEN_UNIT_DISTANCE = 100
+TRANSFORMER_4326_TO_2193 = pyproj.Transformer.from_crs(EPSG_4326, EPSG_2193, always_xy=True)
+
+DISTANCE_THRESHOLD = 30
+TEEN_UNIT_DISTANCE_THRESHOLD = 100
 
 QUIET = False
+
 
 ############################################
 # Exceptions, Customised classes and alias #
@@ -152,73 +156,100 @@ class FatalError(Exception):
     pass
 
 
-GeoRecord = Dict[str, Dict[str, Any]]
+GeoInterface = dict[str, dict[str, Any]]
 SourceKind = Literal["file", "db"]
+
+
+class ChangeAction(StrEnum):
+    ignore = "ignore"
+    add = "add"
+    remove = "remove"
+    update_geom = "update_geom"
+    update_attr = "update_attr"
+    update_geom_attr = "update_geom_attr"
+
+
+class Comparison(NamedTuple):
+    distance: float | None
+    attrs: dict[str, tuple[str, str]]
+
+    def is_geom_within_threshold(self) -> bool:
+        if self.distance is None:
+            return False
+        return self.distance < DISTANCE_THRESHOLD
+
+    def is_attrs_same(self) -> bool:
+        return all(a == b for (a, b) in self.attrs.values())
+
+    def changed_attrs(self) -> list[str]:
+        return [k for k, (a, b) in self.attrs.items() if a != b]
 
 
 @dataclass
 class Source:
     """
-    Base class for facilities and moe schools.
-
+    Base class for data sources
     """
+
+    default_check_attrs: ClassVar[list[str]] = [
+        "source_id",
+        "source_name",
+        "source_type",
+    ]
 
     source_id: int
     source_name: str
     source_type: str  # good use for an enum once we work out what they should be
-    geom: str
-    occupancy: Optional[int] = None
-    change_action: Optional[str] = None
-    change_description: Optional[str] = None
-    comments: Optional[str] = None
+    geom: BaseGeometry | None
+    occupancy: int | None = None
+    change_action: ChangeAction | None = None
+    change_description: str | None = None
+    comments: str | None = None
 
-    def __eq__(self, other: "Source") -> bool:
-        results = {
-            "source_id": self.source_id == other.source_id,
-            "source_name": self.source_name == other.source_name,
-            "source_type": self.source_type == other.source_type,
-        }
+    @property
+    def __geo_interface__(self):
+        raise NotImplementedError
 
-        if all(match for match in results.values()):
-            return True
-        return False
-
-    def check_distance_polygon(self, other: "Source") -> bool:
+    def get(self, key, default=None):
         """
-        Measure the distance between this school and another school
+        Reproduces dict.get behaviour to allow Fiona to consume this class
+        in the same way as its own classes, using __geo_interface__.
         """
-        if self.geom is None or other.geom is None:
-            return None
+        return getattr(self, key, default)
+
+    def compare(self, other: "Source", check_geom: bool = True, check_attrs: list[str] = None) -> Comparison:
+        if check_attrs is None:
+            check_attrs = self.default_check_attrs
+        self._check_have_attrs(check_attrs)
+        other._check_have_attrs(check_attrs)
+        if check_geom is True and self.geom is not None and other.geom is not None:
+            distance = self.geom.distance(other.geom)
         else:
-            distance_from_source = shape(self.geom).distance(shape(other.geom))
-            return distance_from_source <= DISTANCE_FROM_FACILITY
+            distance = None
+        attrs = {attr: (getattr(self, attr), getattr(other, attr)) for attr in check_attrs}
+        return Comparison(distance=distance, attrs=attrs)
 
-    def check_occupancy(self, other: "Source") -> bool:
-        """
-        check occupancy between this school and another school.
-        """
-        return self.occupancy == other.occupancy
+    def _check_have_attrs(self, attributes: list[str]):
+        if missing := [attr for attr in attributes if not hasattr(self, attr)]:
+            raise AttributeError(f"Class {self.__class__.__name__} missing attributes {', '.join(missing)}")
 
 
 @dataclass(eq=False)
 class MOESchool(Source):
     """
-    Subclass of School.
-    Contains specific attributes and functions for schools that come from the MOE data.
+    A school facility from MOE data.
     """
 
-    address: Optional[str] = None
-    suburb: Optional[str] = None
-    city: Optional[str] = None
-    roll_date: Optional[str] = None
-    latitude: Optional[str] = None
-    longitude: Optional[str] = None
+    address: str | None = None
+    suburb: str | None = None
+    city: str | None = None
+    roll_date: str | None = None
+    latitude: str | None = None
+    longitude: str | None = None
 
-    def get_geo_record(self) -> GeoRecord:
-        """
-        return the attributes of the school as a geo_record appropriate to be written to geopackage.
-        """
-        geo_record = {
+    @property
+    def __geo_interface__(self) -> GeoInterface:
+        return {
             "geometry": self.geom,
             "properties": {
                 "School_Id": self.source_id,
@@ -235,36 +266,37 @@ class MOESchool(Source):
                 "change_description": self.change_description,
             },
         }
-        return geo_record
-
-    def parse_check_results(self, check_results: Dict) -> None:
-        """
-        Parse the analysis results
-        """
-        # PARSE NEW/ADD
-        if check_results["add"]:
-            self.change_action = "add"
 
 
 @dataclass(eq=False)
 class FacilitiesSchool(Source):
     """
-    Subclass of School.
-    Contains specific attributes and functions for schools that come from the Facilities data.
+    A school facility from LINZ Facilities data.
     """
 
-    facilities_id: Optional[int] = None
-    facilities_name: Optional[str] = None
-    facilities_use: Optional[str] = None
-    facilities_subtype: Optional[str] = None
-    last_modified: Optional[date] = None
-    sql: Optional[str] = None
+    facilities_id: int | None = None
+    facilities_name: str | None = None
+    facilities_use: str | None = None
+    facilities_subtype: str | None = None
+    last_modified: date | None = None
+    sql: str | None = None
 
-    def get_geo_record(self) -> GeoRecord:
-        """
-        return the attributes of the school as a geo_record appropriate to be written to geopackage.
-        """
-        geo_record = {
+    def update_from_comparison(self, comparison: Comparison):
+        if not comparison.is_geom_within_threshold():
+            self.change_action = ChangeAction.update_geom
+            self.change_description = "geom"
+        if not comparison.is_attrs_same():
+            description = ", ".join(comparison.changed_attrs())
+            if self.change_action == ChangeAction.update_geom:
+                self.change_action = ChangeAction.update_geom_attr
+                self.change_description = f"{self.change_description}, {description}"
+            else:
+                self.change_action = ChangeAction.update_attr
+                self.change_description = description
+
+    @property
+    def __geo_interface__(self) -> GeoInterface:
+        return {
             "geometry": self.geom,
             "properties": {
                 "facility_id": self.facilities_id,
@@ -282,28 +314,6 @@ class FacilitiesSchool(Source):
                 "sql": self.sql,
             },
         }
-        return geo_record
-
-    def parse_check_results(self, check_results: Dict, moe_match: MOESchool) -> None:
-        """
-        Parse the analysis results
-        """
-        # PARSE REMOVE
-        # change status to remove
-        if check_results["remove"]:
-            self.change_action = "remove"
-        else:
-            # PARSE UPDATE
-            # change status to update where if any of the update related checks are false
-            if not all(result for check, result in check_results.items() if check != "remove"):
-                self.change_action = "update"
-                if not check_results["attributes"]:
-                    self.sql = self.generate_update_sql(moe_match)
-
-                # append description with each update that is needed
-                self.change_description = ", ".join(
-                    [check for check, result in check_results.items() if not result and check != "remove"]
-                )
 
     def generate_update_sql(self, moe_match: MOESchool) -> str:
         """
@@ -312,6 +322,10 @@ class FacilitiesSchool(Source):
         attributes from the matched MOE school.
         Intended to be run against the NZ Facilities DB.
         """
+        # TODO: both name and source_name should be `moe_match.source_name`
+        # TODO: only emit updates for columns whose values have actually changed.
+        #  if source_name has changed, update both the name and source_name columns
+        # TODO: no longer called, refactor to work with new method of comparison
         sql = (
             "UPDATE facilities_lds.nz_facilities "
             f"SET name='{self.source_name}', source_name='{moe_match.source_name}', "
@@ -341,7 +355,7 @@ def validate_input_arg_file(input_arg: str) -> Path:
     return file
 
 
-def validate_input_arg_db(input_arg: str) -> str:
+def validate_input_arg_db(input_arg: str) -> dict[str, str]:
     """
     Validates the JSON string passed in by the user. It must be
     formatted correctly and contain all, and only, the fields required
@@ -371,16 +385,14 @@ def validate_output_arg(output_arg: Path, overwrite: bool) -> Path:
     overwrite is True. If any of these tests fail, a FatalError exception
     will be raised.
     """
-    if not output_arg.is_file():
-        raise FatalError(f"Specified output file is not a file: {output_arg}")
     if not output_arg.parent.exists():
         raise FatalError(f"Parent directory of specified output file does not exist: {output_arg.parent}")
     if not output_arg.parent.is_dir():
         raise FatalError(f"Parent of specified output file is not a directory: {output_arg.parent}")
-    if not output_arg.suffix == '.gpkg':
+    if not output_arg.suffix == ".gpkg":
         raise FatalError(f"Specified output file does not end in .gpkg: {output_arg}")
     if output_arg.exists() and overwrite is False:
-        raise FatalError(f"Specified output file already exists. To overwrite, rerun with --overwrite.")
+        raise FatalError("Specified output file already exists. To overwrite, rerun with --overwrite.")
     return output_arg
 
 
@@ -402,7 +414,7 @@ def get_error_name(error: BaseException) -> str:
 
 def save_layers_to_gpkg(
     output_file: Path,
-    layer_data: Dict,
+    layer_data: dict[str, Source],
     schema_name: str,
     layer_name: str,
 ) -> None:
@@ -410,10 +422,10 @@ def save_layers_to_gpkg(
     Add layer to geopackage
 
     Args:
-        output_file (Path): the geopackage to add layer to.
-        layer_data (Dict): the data the layer will contain
-        schema_name (str): the schema of the layer
-        layer_name (str): the name of the layer
+        output_file: the geopackage to add layer to.
+        layer_data: the data the layer will contain
+        schema_name: the schema of the layer
+        layer_name: the name of the layer
     """
     with fiona.open(
         output_file,
@@ -423,13 +435,8 @@ def save_layers_to_gpkg(
         schema=OUTPUT_SCHEMAS[schema_name],
         crs=CRS.from_epsg(2193),
     ) as output:
-        for value in tqdm(
-            layer_data.values(),
-            disable=QUIET,
-            total=len(layer_data.values()),
-            unit="records",
-        ):
-            output.write(value.get_geo_record())
+        logger.info(f"Writing layer {layer_name} to {output_file.name}")
+        output.writerecords(layer_data.values())
 
 
 #################################
@@ -437,11 +444,11 @@ def save_layers_to_gpkg(
 #################################
 
 
-def load_file_source(file: Path) -> Dict:
+def load_file_source(file: Path) -> dict[int, FacilitiesSchool]:
     """
-    Loads the facilities from file. Returns a list of Polygon geometries.
+    Loads the facilities from file.
     """
-    list_of_school_facilities = {}
+    facilities_schools = {}
     try:
         with fiona.open(file) as src:
             for feature in tqdm(src, disable=QUIET, total=len(src), unit="facilities"):
@@ -456,17 +463,16 @@ def load_file_source(file: Path) -> Dict:
                         facilities_use=feature["properties"]["use"],
                         facilities_subtype=feature["properties"]["use_subtype"],
                         last_modified=feature["properties"]["last_modified"],
-                        geom=feature["geometry"].__geo_interface__,
+                        geom=shape(feature["geometry"]),
                     )
-                    list_of_school_facilities[facilities_school.source_id] = facilities_school
-
-        return list_of_school_facilities
+                    facilities_schools[facilities_school.source_id] = facilities_school
+        return facilities_schools
     except Exception as error:
         error_name = get_error_name(error)
         raise FatalError(f"Unable to load file {file}: {error_name} {error}") from error
 
 
-def load_db_source(dbconn_json: str) -> List[FacilitiesSchool]:
+def load_db_source(dbconn_json: dict[str, str]) -> dict[int, FacilitiesSchool]:
     """
     Connects to the database the user desires and queries specific
     facilities table with predetermined filters.
@@ -483,7 +489,7 @@ def load_db_source(dbconn_json: str) -> List[FacilitiesSchool]:
     except OperationalError as error:
         print(f"The error '{error}' occurred")
 
-    list_of_school_facilities = {}
+    facilities_schools = {}
     if db_conn:
         query = f'SELECT {",".join(FACILITIES_FIELDS)} FROM {dbconn_json["schema"]}.{dbconn_json["table"]} {FACILITIES_FILTER}'
         cursor = db_conn.cursor(cursor_factory=extras.DictCursor)
@@ -506,16 +512,16 @@ def load_db_source(dbconn_json: str) -> List[FacilitiesSchool]:
                     last_modified=feature["last_modified"],
                     geom=geom,
                 )
-                list_of_school_facilities[facilities_school.source_id] = facilities_school
+                facilities_schools[facilities_school.source_id] = facilities_school
 
         except OperationalError as error:
             print(f"The error '{error}' occurred")
 
         db_conn.close()
-        return list_of_school_facilities
+        return facilities_schools
 
 
-def request_moe_api() -> List[MOESchool]:
+def request_moe_api() -> dict[int, MOESchool]:
     """
     Access MOE API and retrieve school records.
 
@@ -523,12 +529,12 @@ def request_moe_api() -> List[MOESchool]:
 
     Return results as a dictionary, so you can access values in the object by key.
     """
-    params = {"sql": f"{MOE_SQL}"}
-    response = requests.get(MOE_ENDPOINT, params=params, timeout=10)
-    if response.status_code != 200:
+    # TODO: optionally log this response for debugging / later analysis
+    response = requests.get(MOE_ENDPOINT, params={"sql": MOE_SQL}, timeout=10)
+    if not response.ok:
         raise FatalError(f"Request to API returned: Status Code {response.status_code}, {response.reason}")
 
-    list_of_moe_schools = {}
+    moe_schools = {}
 
     for record in tqdm(
         response.json()["result"]["records"],
@@ -547,70 +553,56 @@ def request_moe_api() -> List[MOESchool]:
             occupancy=record["Total"],
             latitude=record["Latitude"],
             longitude=record["Longitude"],
-            geom=mapping(make_point(record["Latitude"], record["Longitude"]))
-            if record["Latitude"] is not None and record["Longitude"] is not None
-            else None,
+            geom=make_moe_point(record["Latitude"], record["Longitude"]),
         )
 
-        list_of_moe_schools[moe_school.source_id] = moe_school
-    return list_of_moe_schools
+        moe_schools[moe_school.source_id] = moe_school
+    return moe_schools
 
 
-def make_point(lat: float, long: float) -> str:
+def make_moe_point(lat: float | None, lon: float | None) -> Point | None:
     """
-    Creates a Point using the lat and long from provided and reproject it
-    to NZTM(EPSG:2193)
+    Creates a Point geometry from the latitude and longitude properties from the
+    MOE API response. The geoegraphic coordinates are converted to NZTM.
+    If either of the values is None - which can be the case, as not all schools
+    in the MOE API have coordinates - then None is returned instead.
     """
-    transformer = pyproj.Transformer.from_crs(EPSG_4326, EPSG_2193, always_xy=True).transform
-    new_point = transform(transformer, Point(long, lat))
-    return new_point
+    if lat is None or lon is None:
+        return None
+    return transform(TRANSFORMER_4326_TO_2193.transform, Point(lon, lat))
 
 
 def filter_moe_schools(
-    unfiltered_moe_schools: List[MOESchool],
-) -> List[MOESchool]:
+    moe_schools: dict[int, MOESchool],
+) -> dict[int, MOESchool]:
     """
-        Takes the MOE Schools list and filters out Teen Parents Units which are
-        potentially contained. This is determined by distance from nearest
-        other MOE school point within the same list. The distance is defined
-        by the global variable TEEN_UNIT_DISTANCE.
+    Takes the collection of MOE Schools filters out proposed schools, and
+    non-standalone Teen Parent  Units, i.e. those which are potentially
+    contained within another school. This is determined by their distance from
+    the nearest other MOE school point. The threshold distance is defined
+    by the global variable TEEN_UNIT_DISTANCE.
 
     Args:
-        unfiltered_moe_schools (List[MOE_School]): list of schools directly from API
+        moe_schools: collection of MOE Schools
 
-    Returns:
-        List[MOE_School]: list of schools minus the contained Teen Parent Units
+    Returns: collection of MOE Schools minus those which have been excluded.
     """
 
-    filtered_moe_schools = {}
-    for unfiltered_school_id, unfiltered_school in unfiltered_moe_schools.items():
-        if not "proposed" in unfiltered_school.source_name.lower():
-            # If school is not a Teen Parent Unit then ignore
-            if unfiltered_school.source_type == "Teen Parent Unit":
-                if unfiltered_school.geom is not None:
-                    # Create a multipoint containing all points of all the MOE schools
-                    other_moe_schools = MultiPoint(
-                        [
-                            school.geom["coordinates"]
-                            for school in unfiltered_moe_schools.values()
-                            if school.source_id != unfiltered_school_id and school.geom is not None
-                        ]
-                    )
-
-                    # Makes a shapely point out of the current unfiltered school
-                    unfiltered_school_point = Point(unfiltered_school.geom["coordinates"])
-
-                    # Get nearest point to unfiltered school from multipoint.
-                    nearest_pt = nearest_points(unfiltered_school_point, other_moe_schools)
-
-                    # Measure distance and determine if school is to be excluded or not.
-                    if unfiltered_school_point.distance(nearest_pt[1]) >= TEEN_UNIT_DISTANCE:
-                        filtered_moe_schools[unfiltered_school_id] = unfiltered_school
-                    else:
-                        continue
-            else:
-                filtered_moe_schools[unfiltered_school_id] = unfiltered_school
-    return filtered_moe_schools
+    for id_, school in moe_schools.items():
+        # Ignore proposed schools
+        if "proposed" in school.source_name.lower():
+            school.change_action = ChangeAction.ignore
+        if school.source_type == "Teen Parent Unit" and school.geom is not None:
+            # Create a multipoint containing all other schools
+            other_schools = MultiPoint(
+                [school.geom for school in moe_schools.values() if school.source_id != id_ and school.geom is not None]
+            )
+            # Get point of nearest other school
+            nearest_other_school = nearest_points(school.geom, other_schools)[1]
+            # Ignore if the nearest other school point is less than the threshold distance
+            if school.geom.distance(nearest_other_school) < TEEN_UNIT_DISTANCE_THRESHOLD:
+                school.change_action = ChangeAction.ignore
+    return moe_schools
 
 
 ################
@@ -618,62 +610,20 @@ def filter_moe_schools(
 ################
 
 
-# look at using dictionaries so don't need to loop through lists
 def compare_schools(
-    facilities: Dict,
-    moe_schools: Dict,
-) -> List[MOESchool]:
-    """
-    Script checks for:
-     - updates to facilities - attributes and geoms
-     - facilities that need deleting
-     - schools which need to be added to facilities
-
-    Args:
-        facilities (Dict): all facilities which are schools
-        moe_schools (Dict): filtered moe_schools
-
-    Returns:
-        List[MOESchool]: a list of schools which need to be added to facilities.
-    """
-    new_schools = {}
-    # check each facility exists in MOE data, and if it does, then does it need updating?
-    for facility_source_id, facility in facilities.items():
-        facility_results = {
-            "attributes": None,
-            "geom": None,
-            # "occupancy": None,
-            "remove": False,
-        }
-        moe_match = moe_schools.get(facility_source_id)
-
-        if moe_match:
-            facility_results = {
-                "attributes": facility == moe_match,
-                "geom": facility.check_distance_polygon(moe_match),
-                # "occupancy": facility.check_occupancy(moe_match),
-                "remove": False,
-            }
+    facilities_schools: dict[int, FacilitiesSchool], moe_schools: dict[int, MOESchool]
+) -> tuple[dict[int, FacilitiesSchool], dict[int, MOESchool]]:
+    for facility_school_id, facility_school in facilities_schools.items():
+        moe_match = moe_schools.get(facility_school_id)
+        if moe_match and moe_match.change_action != ChangeAction.ignore:
+            comparison = facility_school.compare(moe_match)
+            facility_school.update_from_comparison(comparison)
         else:
-            facility_results["remove"] = True
-
-        facility.parse_check_results(facility_results, moe_match)
-
-    # check each MOE school to see if it exists in facilities.
-    # if it doesn't then it needs to be added.
-    for school_id, school in moe_schools.items():
-        new_school_bool = False
-
-        # Does it exist in facilities
-        facility_match = facilities.get(school_id)
-        if not facility_match:
-            new_school_bool = True
-            new_schools[school_id] = school
-
-        moe_results = {"add": new_school_bool}
-
-        school.parse_check_results(moe_results)
-    return new_schools
+            facility_school.change_action = ChangeAction.remove
+    for moe_school_id, moe_school in moe_schools.items():
+        if moe_school.change_action != ChangeAction.ignore and moe_school_id not in facilities_schools:
+            moe_school.change_action = ChangeAction.add
+    return facilities_schools, moe_schools
 
 
 ###################
@@ -683,7 +633,7 @@ def compare_schools(
 
 def main(
     source_kind: SourceKind,
-    source: Path | str,
+    source: Path | dict[str, str],
     output: Path,
 ) -> None:
     """
@@ -691,36 +641,30 @@ def main(
     """
 
     # Load facilities
-    if source_kind == "file":
-        logger.info("Loading facilities from %s", source)
-        facilities = load_file_source(source)
-    elif source_kind == "db":
-        logger.info("Loading facilities from DB")
-        facilities = load_db_source(source)
+    match source_kind:
+        case "file":
+            logger.info("Loading facilities from %s", source)
+            facilities_schools = load_file_source(source)
+        case "db":
+            logger.info("Loading facilities from DB")
+            facilities_schools = load_db_source(source)
+        case _:
+            raise FatalError()
 
     # Load MOE Schools
     logger.info("Accessing MOE API")
-    unfiltered_moe_schools = request_moe_api()
+    # TODO: optionally load this from a file rather than direct from their API to allow for testing
+    moe_schools = request_moe_api()
 
     logger.info("Filtering MOE Schools")
-    filtered_moe_schools = filter_moe_schools(copy.deepcopy(unfiltered_moe_schools))
+    moe_schools = filter_moe_schools(moe_schools)
 
     # Compare facilities and MOE Schools
     logger.info("Analysing datasets")
-    new_moe_schools = compare_schools(facilities, filtered_moe_schools)
+    facilities_schools, moe_schools = compare_schools(facilities_schools, moe_schools)
 
-    logger.info("Creating output geopackage at %s", output)
-    logger.info("Adding NZ Facilities layer")
-    save_layers_to_gpkg(output, facilities, "nz_facilities", "nz-facilities")
-
-    logger.info("Adding MOE Schools layer")
-    save_layers_to_gpkg(output, unfiltered_moe_schools, "moe_schools", "moe-schools")
-
-    logger.info("Adding filtered MOE Schools layer")
-    save_layers_to_gpkg(output, filtered_moe_schools, "moe_schools", "moe-schools-filtered")
-
-    logger.info("Adding New MOE Schools layer")
-    save_layers_to_gpkg(output, new_moe_schools, "moe_schools", "moe-schools-new")
+    save_layers_to_gpkg(output, facilities_schools, "nz_facilities", "nz-facilities")
+    save_layers_to_gpkg(output, moe_schools, "moe_schools", "moe-schools")
 
 
 ###################
@@ -774,14 +718,16 @@ if __name__ == "__main__":
     )
     ARGS = PARSER.parse_args()
     try:
-        SOURCE_TYPE = ARGS.source_type
-        FACILITIES_INPUT_FILE = verify_input_facilities_file(Path(ARGS.source_details))
-        FACILITIES_DB_CONN = verify_facilities_db_json(ARGS.source_details)
-        OUTPUT_DIR = verify_output_dir(ARGS.output_dir, ARGS.overwrite)
+        if ARGS.source_kind == "file":
+            SOURCE = validate_input_arg_file(ARGS.input)
+        elif ARGS.source_kind == "db":
+            SOURCE = validate_input_arg_db(ARGS.input)
+        else:
+            raise FatalError("--type must be 'file' or 'db'")
+        OUTPUT = validate_output_arg(ARGS.output, ARGS.overwrite)
         QUIET = ARGS.quiet
-
         setup_logging()
-        main(FACILITIES_INPUT_FILE, FACILITIES_DB_CONN, OUTPUT_DIR)
+        main(source_kind=ARGS.source_kind, source=SOURCE, output=OUTPUT)
     except FatalError as err:
         sys.exit(str(err))
     except KeyboardInterrupt:
