@@ -23,14 +23,14 @@ History:
 """
 
 import argparse
+import datetime
 import json
 import logging
 import sys
 from dataclasses import dataclass
-from datetime import date
 from enum import StrEnum
 from pathlib import Path
-from typing import ClassVar, Literal, NamedTuple, Iterable, TypedDict
+from typing import ClassVar, Iterable, Literal, NamedTuple, TypedDict
 
 import fiona
 import psycopg2
@@ -303,7 +303,7 @@ class FacilitiesSchool(Source):
     facilities_name: str | None = None
     facilities_use: str | None = None
     facilities_subtype: str | None = None
-    last_modified: date | None = None
+    last_modified: datetime.date | None = None
     sql: str | None = None
 
     def update_from_comparison(self, comparison: Comparison):
@@ -425,6 +425,16 @@ def validate_output_arg(output_arg: Path, overwrite: bool) -> Path:
     if output_arg.exists() and overwrite is False:
         raise FatalError("Specified output file already exists. To overwrite, rerun with --overwrite.")
     return output_arg
+
+
+def validate_moe_api_response_arg(moe_response_arg: Path | None) -> Path | None:
+    if moe_response_arg is None:
+        return None
+    if not moe_response_arg.exists():
+        raise FatalError(f"{moe_response_arg} does not exist")
+    if not moe_response_arg.is_file():
+        raise FatalError(f"{moe_response_arg} is not a file")
+    return moe_response_arg
 
 
 ####################
@@ -553,7 +563,9 @@ def load_db_source(dbconn_json: dict[str, str]) -> dict[int, FacilitiesSchool]:
         return facilities_schools
 
 
-def request_moe_api() -> dict[int, MOESchool]:
+def request_moe_api(
+    api_response_input_path: Path | None = None, api_response_output_path: Path | None = None
+) -> dict[int, MOESchool]:
     """
     Access MOE API and retrieve school records.
 
@@ -561,17 +573,25 @@ def request_moe_api() -> dict[int, MOESchool]:
 
     Return results as a dictionary, so you can access values in the object by key.
     """
-    # TODO: optionally log this response for debugging / later analysis
-    response = requests.get(MOE_ENDPOINT, params={"sql": MOE_SQL}, timeout=10)
-    if not response.ok:
-        raise FatalError(f"Request to API returned: Status Code {response.status_code}, {response.reason}")
+    if api_response_input_path is not None:
+        logger.info(f"Loading previous MOE API response from {api_response_input_path.name}")
+        with api_response_input_path.open() as f:
+            response_content = json.load(f)
+    else:
+        logger.info("Accessing MOE API")
+        response = requests.get(MOE_ENDPOINT, params={"sql": MOE_SQL}, timeout=10)
+        if not response.ok:
+            raise FatalError(f"Request to API returned: Status Code {response.status_code}, {response.reason}")
+        response_content = response.json()
+        if api_response_output_path is not None:
+            api_response_output_path.write_bytes(response.content)
 
     moe_schools = {}
 
     for record in tqdm(
-        response.json()["result"]["records"],
+        response_content["result"]["records"],
         disable=QUIET,
-        total=len(response.json()["result"]["records"]),
+        total=len(response_content["result"]["records"]),
         unit="schools",
     ):
         moe_school = MOESchool(
@@ -587,7 +607,6 @@ def request_moe_api() -> dict[int, MOESchool]:
             longitude=record["Longitude"],
             geom=make_moe_point(record["Latitude"], record["Longitude"]),
         )
-
         moe_schools[moe_school.source_id] = moe_school
     return moe_schools
 
@@ -667,6 +686,8 @@ def main(
     source_kind: SourceKind,
     source: Path | dict[str, str],
     output: Path,
+    should_save_api_response: bool,
+    api_response_input_path: Path | None,
 ) -> None:
     """
     Takes facilities location as an input and path to output.
@@ -684,9 +705,15 @@ def main(
             raise FatalError()
 
     # Load MOE Schools
-    logger.info("Accessing MOE API")
-    # TODO: optionally load this from a file rather than direct from their API to allow for testing
-    moe_schools = request_moe_api()
+    if should_save_api_response is True:
+        api_response_output_path = (
+            output.parent / f"{output.stem}__moe_api_response_{datetime.datetime.now():%Y-%m-%d_%H-%M-%S}.json"
+        )
+    else:
+        api_response_output_path = None
+    moe_schools = request_moe_api(
+        api_response_input_path=api_response_input_path, api_response_output_path=api_response_output_path
+    )
 
     logger.info("Filtering MOE Schools")
     moe_schools = filter_moe_schools(moe_schools)
@@ -745,6 +772,21 @@ if __name__ == "__main__":
         help="Output file location. Must be a valid path a file ending in .gpkg.",
     )
     PARSER.add_argument(
+        "--save-moe-api-response",
+        action="store_true",
+        help="Save the response from the MOE API. Will save in the same directory as the specified output file.",
+    )
+    PARSER.add_argument(
+        "--moe-api-response",
+        metavar="<PATH>",
+        required=False,
+        type=Path,
+        help=(
+            "Response from the MOE API saved from a previous run of this script. "
+            "If passed, this data will be used instead of querying the API. Useful for testing."
+        ),
+    )
+    PARSER.add_argument(
         "--overwrite",
         action="store_true",
         help="Overwrite the specified output file if it already exists.",
@@ -764,9 +806,16 @@ if __name__ == "__main__":
         else:
             raise FatalError("--type must be 'file' or 'db'")
         OUTPUT = validate_output_arg(ARGS.output, ARGS.overwrite)
+        MOE_API_RESPONSE_PATH = validate_moe_api_response_arg(ARGS.moe_api_response)
         QUIET = ARGS.quiet
         setup_logging()
-        main(source_kind=ARGS.source_kind, source=SOURCE, output=OUTPUT)
+        main(
+            source_kind=ARGS.source_kind,
+            source=SOURCE,
+            output=OUTPUT,
+            should_save_api_response=ARGS.save_moe_api_response,
+            api_response_input_path=MOE_API_RESPONSE_PATH,
+        )
     except FatalError as err:
         sys.exit(str(err))
     except KeyboardInterrupt:
