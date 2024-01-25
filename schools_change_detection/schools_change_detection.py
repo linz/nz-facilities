@@ -78,63 +78,41 @@ DBCONN_SCHEMA = {
     "additionalProperties": False,
 }
 
-OUTPUT_SCHEMAS: dict[str, dict[str, Union[str, dict[str, str]]]] = {
-    "nz_facilities": {
-        "geometry": "MultiPolygon",
-        "properties": {
-            "facility_id": "int",
-            "source_facility_id": "str",
-            "name": "str",
-            "source_name": "str",
-            "use": "str",
-            "use_type": "str",
-            "use_subtype": "str",
-            "estimated_occupancy": "int",
-            "last_modified": "date",
-            "change_action": "str",
-            "change_description": "str",
-            "comments": "str",
-            "sql": "str",
-        },
-    },
-    "moe_schools": {
-        "geometry": "Point",
-        "properties": {
-            "School_Id": "int",
-            "Org_Name": "str",
-            "Add1_Line1": "str",
-            "Add1_Suburb": "str",
-            "Add1_City": "str",
-            "Org_Type": "str",
-            "Roll_Date": "date",
-            "Total": "int",
-            "Latitude": "float",
-            "Longitude": "float",
-            "change_action": "str",
-            "change_description": "str",
-        },
-    },
-}
-
 MOE_ENDPOINT = "https://catalogue.data.govt.nz/api/3/action/datastore_search_sql"
 
-MOE_SQL = 'SELECT "School_Id", "Org_Name", "Add1_Line1", "Add1_Suburb", "Add1_City", "Org_Type", \
-         "Latitude", "Longitude", "Roll_Date", "Total" FROM "20b7c271-fd5a-4c9e-869b-481a0e2453cd" \
-             ORDER BY "School_Id"'
+# MOE API needs all fields to be quoted
+MOE_SQL = """
+SELECT
+    "School_Id",
+    "Org_Name",
+    "Add1_Line1",
+    "Add1_Suburb",
+    "Add1_City",
+    "Org_Type",
+    "Latitude",
+    "Longitude",
+    "Roll_Date",
+    "Total"
+FROM "20b7c271-fd5a-4c9e-869b-481a0e2453cd"
+ORDER BY "School_Id"
+"""
 
-FACILITIES_FIELDS = [
-    "facility_id",
-    "source_facility_id",
-    "name",
-    "source_name",
-    "use",
-    "use_type",
-    "use_subtype",
-    "estimated_occupancy",
-    "last_modified",
-    "ST_AsGeoJSON(shape) as shape",
-]
-FACILITIES_FILTER = "WHERE use = 'School'"
+FACILITIES_SQL = """
+SELECT
+    facility_id,
+    source_facility_id,
+    name,
+    source_name,
+    use,
+    use_type,
+    use_subtype,
+    estimated_occupancy,
+    last_modified,
+    ST_AsGeoJSON(shape) as shape
+FROM
+    {schema}.{table}
+WHERE use = 'School'
+"""
 
 EPSG_2193 = pyproj.CRS("EPSG:2193")
 EPSG_4326 = pyproj.CRS("EPSG:4326")
@@ -156,8 +134,17 @@ class FatalError(Exception):
     pass
 
 
-GeoInterface = dict[str, dict[str, Any]]
 SourceKind = Literal["file", "db"]
+
+
+class GeoInterface(TypedDict):
+    properties: dict[str, str | int | float | None]
+    geometry: BaseGeometry
+
+
+class GeoSchema(TypedDict):
+    properties: dict[str, str]
+    geometry: str
 
 
 class ChangeAction(StrEnum):
@@ -196,6 +183,7 @@ class Source:
         "source_name",
         "source_type",
     ]
+    schema: ClassVar = None
 
     source_id: int
     source_name: str
@@ -240,6 +228,24 @@ class MOESchool(Source):
     A school facility from MOE data.
     """
 
+    schema = {
+        "geometry": "Point",
+        "properties": {
+            "School_Id": "int",
+            "Org_Name": "str",
+            "Add1_Line1": "str",
+            "Add1_Suburb": "str",
+            "Add1_City": "str",
+            "Org_Type": "str",
+            "Roll_Date": "date",
+            "Total": "int",
+            "Latitude": "float",
+            "Longitude": "float",
+            "change_action": "str",
+            "change_description": "str",
+        },
+    }
+
     address: str | None = None
     suburb: str | None = None
     city: str | None = None
@@ -273,6 +279,25 @@ class FacilitiesSchool(Source):
     """
     A school facility from LINZ Facilities data.
     """
+
+    schema = {
+        "geometry": "MultiPolygon",
+        "properties": {
+            "facility_id": "int",
+            "source_facility_id": "str",
+            "name": "str",
+            "source_name": "str",
+            "use": "str",
+            "use_type": "str",
+            "use_subtype": "str",
+            "estimated_occupancy": "int",
+            "last_modified": "date",
+            "change_action": "str",
+            "change_description": "str",
+            "comments": "str",
+            "sql": "str",
+        },
+    }
 
     facilities_id: int | None = None
     facilities_name: str | None = None
@@ -414,29 +439,30 @@ def get_error_name(error: BaseException) -> str:
 
 def save_layers_to_gpkg(
     output_file: Path,
-    layer_data: dict[str, Source],
-    schema_name: str,
+    layer_schema: GeoSchema,
+    layer_data: Iterable[Source],
     layer_name: str,
 ) -> None:
     """
     Add layer to geopackage
 
     Args:
-        output_file: the geopackage to add layer to.
+        output_file: the geopackage to add layer to
+        layer_schema: the schema of the layer
         layer_data: the data the layer will contain
-        schema_name: the schema of the layer
         layer_name: the name of the layer
     """
+    # noinspection PyTypeChecker,PyArgumentList
     with fiona.open(
         output_file,
         "w",
         driver="GPKG",
         layer=layer_name,
-        schema=OUTPUT_SCHEMAS[schema_name],
+        schema=layer_schema,
         crs=CRS.from_epsg(2193),
     ) as output:
         logger.info(f"Writing layer {layer_name} to {output_file.name}")
-        output.writerecords(layer_data.values())
+        output.writerecords(layer_data)
 
 
 #################################
@@ -491,7 +517,7 @@ def load_db_source(dbconn_json: dict[str, str]) -> dict[int, FacilitiesSchool]:
 
     facilities_schools = {}
     if db_conn:
-        query = f'SELECT {",".join(FACILITIES_FIELDS)} FROM {dbconn_json["schema"]}.{dbconn_json["table"]} {FACILITIES_FILTER}'
+        query = FACILITIES_SQL.format(schema=dbconn_json["schema"], table=dbconn_json["table"])
         cursor = db_conn.cursor(cursor_factory=extras.DictCursor)
         try:
             cursor.execute(query)
@@ -663,8 +689,15 @@ def main(
     logger.info("Analysing datasets")
     facilities_schools, moe_schools = compare_schools(facilities_schools, moe_schools)
 
-    save_layers_to_gpkg(output, facilities_schools, "nz_facilities", "nz-facilities")
-    save_layers_to_gpkg(output, moe_schools, "moe_schools", "moe-schools")
+    save_layers_to_gpkg(
+        output_file=output,
+        layer_schema=FacilitiesSchool.schema,
+        layer_data=facilities_schools.values(),
+        layer_name="nz_facilities",
+    )
+    save_layers_to_gpkg(
+        output_file=output, layer_schema=MOESchool.schema, layer_data=moe_schools.values(), layer_name="moe_schools"
+    )
 
 
 ###################
