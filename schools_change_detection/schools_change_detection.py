@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, ClassVar, Literal, NamedTuple, Union
+from typing import ClassVar, Literal, NamedTuple, Iterable, TypedDict
 
 import fiona
 import psycopg2
@@ -168,8 +168,8 @@ class Comparison(NamedTuple):
     def is_attrs_same(self) -> bool:
         return all(a == b for (a, b) in self.attrs.values())
 
-    def changed_attrs(self) -> list[str]:
-        return [k for k, (a, b) in self.attrs.items() if a != b]
+    def changed_attrs(self) -> dict[str, tuple[str, str]]:
+        return {k: (a, b) for k, (a, b) in self.attrs.items() if a != b}
 
 
 @dataclass
@@ -309,15 +309,21 @@ class FacilitiesSchool(Source):
     def update_from_comparison(self, comparison: Comparison):
         if not comparison.is_geom_within_threshold():
             self.change_action = ChangeAction.update_geom
-            self.change_description = "geom"
+            if comparison.distance is None:
+                self.change_description = "Geom: missing"
+            else:
+                self.change_description = f"Geom: {comparison.distance:.1f}m"
         if not comparison.is_attrs_same():
-            description = ", ".join(comparison.changed_attrs())
+            description = ", ".join(comparison.changed_attrs().keys())
+            sql = self.generate_update_sql(comparison)
             if self.change_action == ChangeAction.update_geom:
                 self.change_action = ChangeAction.update_geom_attr
-                self.change_description = f"{self.change_description}, {description}"
+                self.change_description = f"{self.change_description}, Attrs: {description}"
+                self.sql = sql
             else:
                 self.change_action = ChangeAction.update_attr
-                self.change_description = description
+                self.change_description = f"Attrs: {description}"
+                self.sql = sql
 
     @property
     def __geo_interface__(self) -> GeoInterface:
@@ -340,24 +346,24 @@ class FacilitiesSchool(Source):
             },
         }
 
-    def generate_update_sql(self, moe_match: MOESchool) -> str:
+    def generate_update_sql(self, comparison: Comparison) -> str | None:
         """
-        Function called when there is a need for an attribution update.
-        The function creates an update sql statement containing the updated
-        attributes from the matched MOE school.
-        Intended to be run against the NZ Facilities DB.
+        Generates an SQL UPDATE query to update the NZ Facilities database
+        with the changes described in the passed comparison object.
         """
-        # TODO: both name and source_name should be `moe_match.source_name`
-        # TODO: only emit updates for columns whose values have actually changed.
-        #  if source_name has changed, update both the name and source_name columns
-        # TODO: no longer called, refactor to work with new method of comparison
-        sql = (
-            "UPDATE facilities_lds.nz_facilities "
-            f"SET name='{self.source_name}', source_name='{moe_match.source_name}', "
-            f"use_type='{moe_match.source_type}', estimated_occupancy={moe_match.occupancy}, "
-            f"last_modified='{date.today()}' WHERE facility_id={self.facilities_id} "
-            f"AND source_facility_id={self.source_id};"
-        )
+        if not comparison.attrs:
+            return None
+        sql = "UPDATE facilities_lds.nz_facilities\nSET\n"
+        for attr, (old, new) in comparison.changed_attrs().items():
+            match attr:
+                case "source_name":
+                    sql += f"  name='{new}',\n  source_name='{new}',\n"
+                case "source_type":
+                    sql += f"  use_type='{new}',\n"
+                case "occupancy":
+                    sql += f"  estimated_occupancy='{new}',\n"
+        sql += f"  last_modified=CURRENT_DATE\n"
+        sql += f"WHERE facility_id={self.facilities_id} AND source_facility_id={self.source_id};"
         return sql
 
 
