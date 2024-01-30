@@ -577,39 +577,30 @@ def load_db_source(dbconn_json: dict[str, str]) -> dict[int, FacilitiesSchool]:
             user=dbconn_json["user"],
             password=dbconn_json["password"],
         )
-    except OperationalError as error:
-        print(f"The error '{error}' occurred")
-
-    facilities_schools = {}
-    if db_conn:
         query = FACILITIES_SQL.format(schema=dbconn_json["schema"], table=dbconn_json["table"])
         cursor = db_conn.cursor(cursor_factory=extras.DictCursor)
-        try:
-            cursor.execute(query)
-            features = cursor.fetchall()
-
-            for feature in tqdm(features, disable=QUIET, total=len(features), unit="facilities"):
-                geom = json.loads(feature["shape"])
-                del geom["crs"]
-                facilities_school = FacilitiesSchool(
-                    source_id=feature["source_facility_id"],
-                    source_name=feature["source_name"],
-                    source_type=feature["use_type"],
-                    facilities_id=feature["facility_id"],
-                    facilities_name=feature["name"],
-                    occupancy=feature["estimated_occupancy"],
-                    facilities_use=feature["use"],
-                    facilities_subtype=feature["use_subtype"],
-                    last_modified=feature["last_modified"],
-                    geom=geom,
-                )
-                facilities_schools[facilities_school.source_id] = facilities_school
-
-        except OperationalError as error:
-            print(f"The error '{error}' occurred")
-
+        cursor.execute(query)
+        features = cursor.fetchall()
+        for feature in tqdm(features, disable=QUIET, total=len(features), unit="facilities"):
+            geom = json.loads(feature["shape"])
+            del geom["crs"]
+            facilities_school = FacilitiesSchool(
+                source_id=feature["source_facility_id"],
+                source_name=feature["source_name"],
+                source_type=feature["use_type"],
+                facilities_id=feature["facility_id"],
+                facilities_name=feature["name"],
+                occupancy=feature["estimated_occupancy"],
+                facilities_use=feature["use"],
+                facilities_subtype=feature["use_subtype"],
+                last_modified=feature["last_modified"],
+                geom=geom,
+            )
+            facilities_schools[facilities_school.source_id] = facilities_school
         db_conn.close()
-        return facilities_schools
+    except OperationalError as error:
+        print(f"The error '{error}' occurred")
+    return facilities_schools
 
 
 def request_moe_api(
