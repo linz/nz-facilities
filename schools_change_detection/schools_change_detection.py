@@ -148,12 +148,12 @@ class GeoSchema(typing.TypedDict):
 
 
 class ChangeAction(StrEnum):
-    ignore = "ignore"
-    add = "add"
-    remove = "remove"
-    update_geom = "update_geom"
-    update_attr = "update_attr"
-    update_geom_attr = "update_geom_attr"
+    IGNORE = "ignore"
+    ADD = "add"
+    REMOVE = "remove"
+    UPDATE_GEOM = "update_geom"
+    UPDATE_ATTR = "update_attr"
+    UPDATE_GEOM_ATTR = "update_geom_attr"
 
 
 class Comparison(typing.NamedTuple):
@@ -161,14 +161,13 @@ class Comparison(typing.NamedTuple):
     attrs: dict[str, tuple[str, str]]
 
     def is_geom_within_threshold(self) -> bool:
+        """Whether the distance is less than the threshold distance."""
         if self.distance is None:
             return False
         return self.distance < DISTANCE_THRESHOLD
 
-    def is_attrs_same(self) -> bool:
-        return all(a == b for (a, b) in self.attrs.values())
-
     def changed_attrs(self) -> dict[str, tuple[str, str]]:
+        """Attributes which have changed."""
         return {k: (a, b) for k, (a, b) in self.attrs.items() if a != b}
 
 
@@ -307,7 +306,7 @@ class FacilitiesSchool(Source):
 
     def update_from_comparison(self, comparison: Comparison):
         if not comparison.is_geom_within_threshold():
-            self.change_action = ChangeAction.update_geom
+            self.change_action = ChangeAction.UPDATE_GEOM
             if comparison.distance is None:
                 self.change_description = "Geom: missing"
             else:
@@ -315,12 +314,12 @@ class FacilitiesSchool(Source):
         if not comparison.is_attrs_same():
             description = ", ".join(comparison.changed_attrs().keys())
             sql = self.generate_update_sql(comparison)
-            if self.change_action == ChangeAction.update_geom:
-                self.change_action = ChangeAction.update_geom_attr
+            if self.change_action == ChangeAction.UPDATE_GEOM:
+                self.change_action = ChangeAction.UPDATE_GEOM_ATTR
                 self.change_description = f"{self.change_description}, Attrs: {description}"
                 self.sql = sql
             else:
-                self.change_action = ChangeAction.update_attr
+                self.change_action = ChangeAction.UPDATE_ATTR
                 self.change_description = f"Attrs: {description}"
                 self.sql = sql
 
@@ -641,7 +640,7 @@ def filter_moe_schools(
     for id_, school in moe_schools.items():
         # Ignore proposed schools
         if "proposed" in school.source_name.lower():
-            school.change_action = ChangeAction.ignore
+            school.change_action = ChangeAction.IGNORE
         if school.source_type == "Teen Parent Unit" and school.geom is not None:
             # Create a multipoint containing all other schools
             other_schools = MultiPoint(
@@ -651,7 +650,7 @@ def filter_moe_schools(
             nearest_other_school = nearest_points(school.geom, other_schools)[1]
             # Ignore if the nearest other school point is less than the threshold distance
             if school.geom.distance(nearest_other_school) < TEEN_UNIT_DISTANCE_THRESHOLD:
-                school.change_action = ChangeAction.ignore
+                school.change_action = ChangeAction.IGNORE
     return moe_schools
 
 
@@ -665,14 +664,14 @@ def compare_schools(
 ) -> tuple[dict[int, FacilitiesSchool], dict[int, MOESchool]]:
     for facility_school_id, facility_school in facilities_schools.items():
         moe_match = moe_schools.get(facility_school_id)
-        if moe_match and moe_match.change_action != ChangeAction.ignore:
+        if moe_match and moe_match.change_action != ChangeAction.IGNORE:
             comparison = facility_school.compare(moe_match)
             facility_school.update_from_comparison(comparison)
         else:
-            facility_school.change_action = ChangeAction.remove
+            facility_school.change_action = ChangeAction.REMOVE
     for moe_school_id, moe_school in moe_schools.items():
-        if moe_school.change_action != ChangeAction.ignore and moe_school_id not in facilities_schools:
-            moe_school.change_action = ChangeAction.add
+        if moe_school.change_action != ChangeAction.IGNORE and moe_school_id not in facilities_schools:
+            moe_school.change_action = ChangeAction.ADD
     return facilities_schools, moe_schools
 
 
