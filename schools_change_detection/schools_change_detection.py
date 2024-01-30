@@ -124,6 +124,9 @@ TEEN_UNIT_DISTANCE_THRESHOLD = 100
 
 QUIET = False
 
+COMPARABLE = "COMPARABLE"
+DEFAULT_COMPARABLE = "DEFAULT_COMPARABLE"
+
 
 ############################################
 # Exceptions, Customised classes and alias #
@@ -178,16 +181,12 @@ class Source:
     """
 
     schema: typing.ClassVar[GeoSchema] = None
-        "source_id",
-        "source_name",
-        "source_type",
-    ]
 
-    source_id: int
-    source_name: str
-    source_type: str  # good use for an enum once we work out what they should be
+    source_id: typing.Annotated[int, COMPARABLE, DEFAULT_COMPARABLE]
+    source_name: typing.Annotated[str, COMPARABLE, DEFAULT_COMPARABLE]
+    source_type: typing.Annotated[str, COMPARABLE, DEFAULT_COMPARABLE]
     geom: BaseGeometry | None
-    occupancy: int | None = None
+    occupancy: typing.Annotated[int | None, COMPARABLE] = None
     change_action: ChangeAction | None = None
     change_description: str | None = None
     comments: str | None = None
@@ -203,11 +202,12 @@ class Source:
         """
         return getattr(self, key, default)
 
-    def compare(self, other: "Source", check_geom: bool = True, check_attrs: list[str] = None) -> Comparison:
+    def compare(self, other: "Source", check_geom: bool = True, check_attrs: typing.Iterable[str] | None = None) -> Comparison:
+        """
+        Compares this instance with another instance, returning a Comparison object.
+        """
         if check_attrs is None:
-            check_attrs = self.default_check_attrs
-        self._check_have_attrs(check_attrs)
-        other._check_have_attrs(check_attrs)
+            check_attrs = self.get_comparable_attrs(default=True)
         if check_geom is True and self.geom is not None and other.geom is not None:
             distance = self.geom.distance(other.geom)
         else:
@@ -215,9 +215,22 @@ class Source:
         attrs = {attr: (getattr(self, attr), getattr(other, attr)) for attr in check_attrs}
         return Comparison(distance=distance, attrs=attrs)
 
-    def _check_have_attrs(self, attributes: list[str]):
-        if missing := [attr for attr in attributes if not hasattr(self, attr)]:
-            raise AttributeError(f"Class {self.__class__.__name__} missing attributes {', '.join(missing)}")
+    @classmethod
+    def get_comparable_attrs(cls, default: bool = False) -> set[str]:
+        """
+        Return a set of all comparable attributes for this class,
+        being all those with a type hint of typing.Annotated[<type>, COMPARABLE].
+        If default is True, only default comparable attributes will be returned.
+        """
+        comparable_attrs = set()
+        if default is True:
+            check_vals = {COMPARABLE, DEFAULT_COMPARABLE}
+        else:
+            check_vals = {COMPARABLE}
+        for attr, type_ in typing.get_type_hints(cls, include_extras=True).items():
+            if typing.get_origin(type_) is typing.Annotated and check_vals.issubset(type_.__metadata__):
+                comparable_attrs.add(attr)
+        return comparable_attrs
 
 
 @dataclass(eq=False)
@@ -305,14 +318,17 @@ class FacilitiesSchool(Source):
     sql: str | None = None
 
     def update_from_comparison(self, comparison: Comparison):
+        """
+        Updates this instance in place from a Comparison instance.
+        """
         if not comparison.is_geom_within_threshold():
             self.change_action = ChangeAction.UPDATE_GEOM
             if comparison.distance is None:
                 self.change_description = "Geom: missing"
             else:
                 self.change_description = f"Geom: {comparison.distance:.1f}m"
-        if not comparison.is_attrs_same():
-            description = ", ".join(comparison.changed_attrs().keys())
+        if changed_attrs := comparison.changed_attrs():
+            description = ", ".join(changed_attrs.keys())
             sql = self.generate_update_sql(comparison)
             if self.change_action == ChangeAction.UPDATE_GEOM:
                 self.change_action = ChangeAction.UPDATE_GEOM_ATTR
@@ -435,6 +451,34 @@ def validate_moe_api_response_arg(moe_response_arg: Path | None) -> Path | None:
     return moe_response_arg
 
 
+def validate_comparison_arg(comparison_arg: str) -> list[str]:
+    """
+    Validates the attributes to perform the comparison with.
+    Must be a comma separated list of valid comparable attributes, being an
+    attribute with the type hint of typing.Annotated[<type>, COMPARABLE] which
+    exists on both classes. If any invalid attributes or no valid attributes are
+    passed, a FatalError exception will be raised.
+    """
+    options = get_comparable_attrs(FacilitiesSchool, MOESchool)
+    options_msg = f"Valid options are {','.join(sorted(options))}."
+    parts = comparison_arg.split(",")
+    valid_attrs = []
+    invalid_attrs = []
+    for part in parts:
+        if part in options:
+            valid_attrs.append(part)
+        else:
+            invalid_attrs.append(part)
+    if invalid_attrs:
+        if len(invalid_attrs) == 1:
+            raise FatalError(f'"{invalid_attrs[0]}" is not a valid attribute to compare on. {options_msg}')
+        else:
+            raise FatalError(f'"{', '.join(invalid_attrs)}" are not valid attributes to compare on. {options_msg}.')
+    if not valid_attrs:
+        raise FatalError(f"No valid attributes to compare on were passed. {options_msg}")
+    return valid_attrs
+
+
 ####################
 # Shared functions #
 ####################
@@ -449,6 +493,13 @@ def get_error_name(error: BaseException) -> str:
         return f"{module_name}.{error.__class__.__name__}"
     else:
         return error.__class__.__name__
+
+
+def get_comparable_attrs(cls_1: type[Source], cls_2: type[Source]) -> set[str]:
+    """
+    Returns a set of comparable attributes shared by the two classes.
+    """
+    return cls_1.get_comparable_attrs() & cls_2.get_comparable_attrs()
 
 
 def save_layers_to_gpkg(
@@ -660,12 +711,20 @@ def filter_moe_schools(
 
 
 def compare_schools(
-    facilities_schools: dict[int, FacilitiesSchool], moe_schools: dict[int, MOESchool]
+    facilities_schools: dict[int, FacilitiesSchool], moe_schools: dict[int, MOESchool], comparison_attrs: list[str]
 ) -> tuple[dict[int, FacilitiesSchool], dict[int, MOESchool]]:
+    """
+    Compares a collection of schools from the MOE dataset with a collection of
+    schools from the current facilities dataset. Each facilities school is
+    marked with whether it should be updated (if it is still in the MOE dataset,
+    but its location or attributes have changed) or removed (if it is no longer
+    in the MOE dataset). MOE schools which are not in the facilities are marked
+    to be added.
+    """
     for facility_school_id, facility_school in facilities_schools.items():
         moe_match = moe_schools.get(facility_school_id)
         if moe_match and moe_match.change_action != ChangeAction.IGNORE:
-            comparison = facility_school.compare(moe_match)
+            comparison = facility_school.compare(moe_match, check_geom=True, check_attrs=comparison_attrs)
             facility_school.update_from_comparison(comparison)
         else:
             facility_school.change_action = ChangeAction.REMOVE
@@ -686,9 +745,10 @@ def main(
     output: Path,
     should_save_api_response: bool,
     api_response_input_path: Path | None,
+    comparison_attrs: list[str],
 ) -> None:
     """
-    Takes facilities location as an input and path to output.
+    Main script entrypoint.
     """
 
     # Load facilities
@@ -718,7 +778,7 @@ def main(
 
     # Compare facilities and MOE Schools
     logger.info("Analysing datasets")
-    facilities_schools, moe_schools = compare_schools(facilities_schools, moe_schools)
+    facilities_schools, moe_schools = compare_schools(facilities_schools, moe_schools, comparison_attrs)
 
     save_layers_to_gpkg(
         output_file=output,
@@ -738,8 +798,7 @@ def main(
 if __name__ == "__main__":
     PARSER = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Check for changes within the MoE schools data which need \
-            to be applied to the NZ Facilities data.",
+        description="Check for changes within the MoE schools data which need to be applied to the NZ Facilities data.",
     )
     PARSER.add_argument(
         "-t",
@@ -785,6 +844,16 @@ if __name__ == "__main__":
         ),
     )
     PARSER.add_argument(
+        "--compare",
+        metavar="<STRING>",
+        required=False,
+        default=",".join(Source.get_comparable_attrs(default=True)),
+        help=(
+            f"Comma separated list of attributes to compare on. "
+            f"Valid options are {','.join(get_comparable_attrs(FacilitiesSchool, MOESchool))}"
+        ),
+    )
+    PARSER.add_argument(
         "--overwrite",
         action="store_true",
         help="Overwrite the specified output file if it already exists.",
@@ -805,6 +874,7 @@ if __name__ == "__main__":
             raise FatalError("--type must be 'file' or 'db'")
         OUTPUT = validate_output_arg(ARGS.output, ARGS.overwrite)
         MOE_API_RESPONSE_PATH = validate_moe_api_response_arg(ARGS.moe_api_response)
+        COMPARISON_ATTRS = validate_comparison_arg(ARGS.compare)
         QUIET = ARGS.quiet
         setup_logging()
         main(
@@ -813,6 +883,7 @@ if __name__ == "__main__":
             output=OUTPUT,
             should_save_api_response=ARGS.save_moe_api_response,
             api_response_input_path=MOE_API_RESPONSE_PATH,
+            comparison_attrs=COMPARISON_ATTRS,
         )
     except FatalError as err:
         sys.exit(str(err))
