@@ -27,10 +27,10 @@ import datetime
 import json
 import logging
 import sys
+import typing
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import ClassVar, Iterable, Literal, NamedTuple, TypedDict
 
 import fiona
 import psycopg2
@@ -134,15 +134,15 @@ class FatalError(Exception):
     pass
 
 
-SourceKind = Literal["file", "db"]
+SourceKind = typing.Literal["file", "db"]
 
 
-class GeoInterface(TypedDict):
+class GeoInterface(typing.TypedDict):
     properties: dict[str, str | int | float | None]
     geometry: BaseGeometry
 
 
-class GeoSchema(TypedDict):
+class GeoSchema(typing.TypedDict):
     properties: dict[str, str]
     geometry: str
 
@@ -156,7 +156,7 @@ class ChangeAction(StrEnum):
     update_geom_attr = "update_geom_attr"
 
 
-class Comparison(NamedTuple):
+class Comparison(typing.NamedTuple):
     distance: float | None
     attrs: dict[str, tuple[str, str]]
 
@@ -178,12 +178,11 @@ class Source:
     Base class for data sources
     """
 
-    default_check_attrs: ClassVar[list[str]] = [
+    schema: typing.ClassVar[GeoSchema] = None
         "source_id",
         "source_name",
         "source_type",
     ]
-    schema: ClassVar = None
 
     source_id: int
     source_name: str
@@ -456,7 +455,7 @@ def get_error_name(error: BaseException) -> str:
 def save_layers_to_gpkg(
     output_file: Path,
     layer_schema: GeoSchema,
-    layer_data: Iterable[Source],
+    layer_data: typing.Iterable[Source],
     layer_name: str,
 ) -> None:
     """
