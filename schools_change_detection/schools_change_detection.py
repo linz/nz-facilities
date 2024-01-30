@@ -38,7 +38,7 @@ import pyproj
 import requests
 from fiona.crs import CRS
 from psycopg2 import OperationalError, extras
-from shapely.geometry import MultiPoint, Point, shape
+from shapely.geometry import MultiPoint, Point, Polygon, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import nearest_points, transform
 from tqdm import tqdm
@@ -141,8 +141,8 @@ SourceKind = typing.Literal["file", "db"]
 
 
 class GeoInterface(typing.TypedDict):
-    properties: dict[str, str | int | float | None]
-    geometry: BaseGeometry
+    properties: dict[str, str | int | float | datetime.date | None]
+    geometry: BaseGeometry | None
 
 
 class GeoSchema(typing.TypedDict):
@@ -180,7 +180,7 @@ class Source:
     Base class for data sources
     """
 
-    schema: typing.ClassVar[GeoSchema] = None
+    schema: typing.ClassVar = None
 
     source_id: typing.Annotated[int, COMPARABLE, DEFAULT_COMPARABLE]
     source_name: typing.Annotated[str, COMPARABLE, DEFAULT_COMPARABLE]
@@ -239,7 +239,7 @@ class MOESchool(Source):
     A school facility from MOE data.
     """
 
-    schema = {
+    schema: typing.ClassVar[GeoSchema] = {
         "geometry": "Point",
         "properties": {
             "School_Id": "int",
@@ -257,6 +257,7 @@ class MOESchool(Source):
         },
     }
 
+    geom: Point | None
     address: str | None = None
     suburb: str | None = None
     city: str | None = None
@@ -291,7 +292,7 @@ class FacilitiesSchool(Source):
     A school facility from LINZ Facilities data.
     """
 
-    schema = {
+    schema: typing.ClassVar[GeoSchema] = {
         "geometry": "MultiPolygon",
         "properties": {
             "facility_id": "int",
@@ -310,6 +311,7 @@ class FacilitiesSchool(Source):
         },
     }
 
+    geom: Polygon | None
     facilities_id: int | None = None
     facilities_name: str | None = None
     facilities_use: str | None = None
@@ -376,7 +378,7 @@ class FacilitiesSchool(Source):
                     sql += f"  use_type='{new}',\n"
                 case "occupancy":
                     sql += f"  estimated_occupancy='{new}',\n"
-        sql += f"  last_modified=CURRENT_DATE\n"
+        sql += "  last_modified=CURRENT_DATE\n"
         sql += f"WHERE facility_id={self.facilities_id} AND source_facility_id={self.source_id};"
         return sql
 
@@ -442,6 +444,10 @@ def validate_output_arg(output_arg: Path, overwrite: bool) -> Path:
 
 
 def validate_moe_api_response_arg(moe_response_arg: Path | None) -> Path | None:
+    """
+    Validates the supplied previous MOE API response arg.
+    Must be a valid path to a file which exists.
+    """
     if moe_response_arg is None:
         return None
     if not moe_response_arg.exists():
@@ -487,7 +493,7 @@ def validate_comparison_arg(comparison_arg: str) -> list[str]:
 def get_error_name(error: BaseException) -> str:
     """
     Returns the name of the supplied exception, optionally prefixed
-    by its module name if it not a builtin exception
+    by its module name if it not a builtin exception.
     """
     if (module_name := error.__class__.__module__) != "builtins":
         return f"{module_name}.{error.__class__.__name__}"
@@ -568,7 +574,7 @@ def load_db_source(dbconn_json: dict[str, str]) -> dict[int, FacilitiesSchool]:
     Connects to the database the user desires and queries specific
     facilities table with predetermined filters.
     """
-    db_conn = None
+    facilities_schools = {}
     try:
         db_conn = psycopg2.connect(
             host=dbconn_json["host"],
@@ -654,7 +660,7 @@ def request_moe_api(
 def make_moe_point(lat: float | None, lon: float | None) -> Point | None:
     """
     Creates a Point geometry from the latitude and longitude properties from the
-    MOE API response. The geoegraphic coordinates are converted to NZTM.
+    MOE API response. The geographic coordinates are converted to NZTM.
     If either of the values is None - which can be the case, as not all schools
     in the MOE API have coordinates - then None is returned instead.
     """
@@ -797,7 +803,7 @@ if __name__ == "__main__":
         dest="source_kind",
         choices=["file", "db"],
         required=True,
-        help="Flag indicating whether the facilities source type is " "an OGR readable file or a PostgreSQL DB",
+        help="Flag indicating whether the facilities source type is an OGR readable file or a PostgreSQL DB.",
     )
     PARSER.add_argument(
         "-i",
@@ -830,7 +836,7 @@ if __name__ == "__main__":
         required=False,
         type=Path,
         help=(
-            "Response from the MOE API saved from a previous run of this script. "
+            "Path to response from the MOE API saved from a previous run of this script. "
             "If passed, this data will be used instead of querying the API. Useful for testing."
         ),
     )
