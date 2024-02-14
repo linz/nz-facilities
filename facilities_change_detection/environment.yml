@@ -1,4 +1,4 @@
-name: schools_change_detection
+name: facilities_change_detection
 channels:
   - conda-forge
   - defaults

@@ -47,7 +47,7 @@ from tqdm import tqdm
 # Set up logging #
 ##################
 
-logger: logging.Logger = logging.getLogger("schools_change_detection")
+logger: logging.Logger = logging.getLogger("facilities_change_detection")
 
 
 def setup_logging() -> None:
@@ -822,7 +822,7 @@ if __name__ == "__main__":
         "--output",
         metavar="<PATH>",
         type=Path,
-        default=Path.cwd() / "schools_change_detection.gpkg",
+        default=Path.cwd() / "facilities_change_detection.gpkg",
         help="Output file location. Must be a valid path a file ending in .gpkg.",
     )
     PARSER.add_argument(
