@@ -10,3 +10,4 @@ dependencies:
   - requests=2
   - psycopg2=2
   - tqdm=4
+  - typer=0.9
