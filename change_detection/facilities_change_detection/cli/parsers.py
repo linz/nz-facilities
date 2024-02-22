@@ -2,9 +2,7 @@ import json
 
 import typer
 
-import facilities_change_detection.core.facilities
-from facilities_change_detection.core.facilities import DBConnectionDetails
-from facilities_change_detection.core import schools
+from facilities_change_detection.core.facilities import DBConnectionDetails, Source
 
 
 def parse_facilities_db_connection_details(input_arg: str) -> DBConnectionDetails:
@@ -42,7 +40,7 @@ def parse_comparison_arg(comparison_arg: str) -> list[str]:
     exists on both classes. If any invalid attributes or no valid attributes are
     passed, a FatalError exception will be raised.
     """
-    options = facilities_change_detection.core.facilities.get_comparable_attrs(schools.FacilitiesSchool, schools.MOESchool)
+    options = Source.comparable_attrs()
     options_msg = f"Valid options are {','.join(sorted(options))}."
     parts = comparison_arg.split(",")
     valid_attrs = []

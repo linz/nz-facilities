@@ -1,4 +1,3 @@
-import datetime
 import json
 import typing
 from dataclasses import dataclass
@@ -6,12 +5,11 @@ from pathlib import Path
 
 import pyproj
 import requests
-from shapely.geometry import MultiPoint, Point, Polygon
-from shapely.geometry.base import BaseGeometry
+from shapely.geometry import MultiPoint, Point
 from shapely.ops import nearest_points, transform
 from tqdm import tqdm
 
-from facilities_change_detection.core.facilities import Source, ChangeAction, Comparison
+from facilities_change_detection.core.facilities import ChangeAction, ExternalSource, GeoInterface, GeoSchema
 from facilities_change_detection.core.log import get_logger
 
 
@@ -41,18 +39,8 @@ class FatalError(Exception):
     pass
 
 
-class GeoInterface(typing.TypedDict):
-    properties: dict[str, str | int | float | datetime.date | None]
-    geometry: BaseGeometry | None
-
-
-class GeoSchema(typing.TypedDict):
-    properties: dict[str, str]
-    geometry: str
-
-
 @dataclass(eq=False)
-class MOESchool(Source):
+class MOESchool(ExternalSource):
     """
     A school facility from MOE data.
     """
@@ -84,7 +72,7 @@ class MOESchool(Source):
     longitude: str | None = None
 
     @classmethod
-    def from_api_response(cls, record) -> "MOESchool":
+    def from_api_response(cls, record) -> typing.Self:
         return cls(
             source_id=record["School_Id"],
             source_name=record["Org_Name"],
@@ -130,118 +118,6 @@ class MOESchool(Source):
                 "change_description": self.change_description,
             },
         }
-
-
-@dataclass(eq=False)
-class FacilitiesSchool(Source):
-    """
-    A school facility from LINZ Facilities data.
-    """
-
-    schema: typing.ClassVar[GeoSchema] = {
-        "geometry": "MultiPolygon",
-        "properties": {
-            "facility_id": "int",
-            "source_facility_id": "str",
-            "name": "str",
-            "source_name": "str",
-            "use": "str",
-            "use_type": "str",
-            "use_subtype": "str",
-            "estimated_occupancy": "int",
-            "last_modified": "date",
-            "change_action": "str",
-            "change_description": "str",
-            "comments": "str",
-            "sql": "str",
-        },
-    }
-
-    geom: Polygon | None
-    facilities_id: int | None = None
-    facilities_name: str | None = None
-    facilities_use: str | None = None
-    facilities_subtype: str | None = None
-    last_modified: datetime.date | None = None
-    sql: str | None = None
-
-    @classmethod
-    def from_props_and_geom(cls, properties, geom) -> "FacilitiesSchool":
-        return cls(
-            source_id=properties["source_facility_id"],
-            source_name=properties["source_name"],
-            source_type=properties["use_type"],
-            facilities_id=properties["facility_id"],
-            facilities_name=properties["name"],
-            occupancy=properties["estimated_occupancy"],
-            facilities_use=properties["use"],
-            facilities_subtype=properties["use_subtype"],
-            last_modified=properties["last_modified"],
-            geom=geom,
-        )
-
-    def update_from_comparison(self, comparison: Comparison):
-        """
-        Updates this instance in place from a Comparison instance.
-        """
-        if not comparison.is_geom_within_threshold():
-            self.change_action = ChangeAction.UPDATE_GEOM
-            if comparison.distance is None:
-                self.change_description = "Geom: missing"
-            else:
-                self.change_description = f"Geom: {comparison.distance:.1f}m"
-        if changed_attrs := comparison.changed_attrs():
-            description = ", ".join(changed_attrs.keys())
-            sql = self.generate_update_sql(comparison)
-            if self.change_action == ChangeAction.UPDATE_GEOM:
-                self.change_action = ChangeAction.UPDATE_GEOM_ATTR
-                self.change_description = f"{self.change_description}, Attrs: {description}"
-                self.sql = sql
-            else:
-                self.change_action = ChangeAction.UPDATE_ATTR
-                self.change_description = f"Attrs: {description}"
-                self.sql = sql
-
-    @property
-    def __geo_interface__(self) -> GeoInterface:
-        return {
-            "geometry": self.geom,
-            "properties": {
-                "facility_id": self.facilities_id,
-                "source_facility_id": self.source_id,
-                "name": self.facilities_name,
-                "source_name": self.source_name,
-                "use": self.facilities_use,
-                "use_type": self.source_type,
-                "use_subtype": self.facilities_subtype,
-                "estimated_occupancy": self.occupancy,
-                "last_modified": self.last_modified,
-                "change_action": self.change_action,
-                "change_description": self.change_description,
-                "comments": "",
-                "sql": self.sql,
-            },
-        }
-
-    def generate_update_sql(self, comparison: Comparison) -> str | None:
-        """
-        Generates an SQL UPDATE query to update the NZ Facilities database
-        with the changes described in the passed comparison object.
-        """
-        if not comparison.attrs:
-            return None
-        sql = "UPDATE facilities_lds.nz_facilities\nSET\n"
-        for attr, (old, new) in comparison.changed_attrs().items():
-            match attr:
-                case "source_name":
-                    sql += f"  name='{new}',\n  source_name='{new}',\n"
-                case "source_type":
-                    sql += f"  use_type='{new}',\n"
-                case "occupancy":
-                    sql += f"  estimated_occupancy='{new}',\n"
-        sql += "  last_modified=CURRENT_DATE\n"
-        sql += f"WHERE facility_id={self.facilities_id} AND source_facility_id={self.source_id};"
-        return sql
 
 
 def request_moe_api(
@@ -310,27 +186,3 @@ def filter_moe_schools(
             if school.geom.distance(nearest_other_school) < TEEN_UNIT_DISTANCE_THRESHOLD:
                 school.change_action = ChangeAction.IGNORE
     return moe_schools
-
-
-def compare_schools(
-    facilities_schools: dict[int, FacilitiesSchool], moe_schools: dict[int, MOESchool], comparison_attrs: typing.Iterable[str]
-) -> tuple[dict[int, FacilitiesSchool], dict[int, MOESchool]]:
-    """
-    Compares a collection of schools from the MOE dataset with a collection of
-    schools from the current facilities dataset. Each facilities school is
-    marked with whether it should be updated (if it is still in the MOE dataset,
-    but its location or attributes have changed) or removed (if it is no longer
-    in the MOE dataset). MOE schools which are not in the facilities are marked
-    to be added.
-    """
-    for facility_school_id, facility_school in facilities_schools.items():
-        moe_match = moe_schools.get(facility_school_id)
-        if moe_match and moe_match.change_action != ChangeAction.IGNORE:
-            comparison = facility_school.compare(moe_match, check_geom=True, check_attrs=comparison_attrs)
-            facility_school.update_from_comparison(comparison)
-        else:
-            facility_school.change_action = ChangeAction.REMOVE
-    for moe_school_id, moe_school in moe_schools.items():
-        if moe_school.change_action != ChangeAction.IGNORE and moe_school_id not in facilities_schools:
-            moe_school.change_action = ChangeAction.ADD
-    return facilities_schools, moe_schools

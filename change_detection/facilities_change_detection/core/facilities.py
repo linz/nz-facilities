@@ -1,7 +1,9 @@
+import datetime
 import typing
 from dataclasses import dataclass
 from enum import StrEnum
 
+from shapely import Polygon
 from shapely.geometry.base import BaseGeometry
 
 COMPARABLE = "COMPARABLE"
@@ -28,6 +30,16 @@ class DBConnectionDetails(typing.TypedDict):
     table: str
 
 
+class GeoInterface(typing.TypedDict):
+    properties: dict[str, str | int | float | datetime.date | None]
+    geometry: typing.Union[BaseGeometry, None]
+
+
+class GeoSchema(typing.TypedDict):
+    properties: dict[str, str]
+    geometry: str
+
+
 class Comparison(typing.NamedTuple):
     distance: float | None
     attrs: dict[str, tuple[str, str]]
@@ -49,7 +61,9 @@ class Source:
     Base class for data sources
     """
 
-    schema: typing.ClassVar = None
+    schema: typing.ClassVar[GeoSchema] = None
+    default_comparable_attrs: typing.ClassVar = frozenset({"source_id", "source_name", "source_type"})
+    optional_comparable_attrs: typing.ClassVar = frozenset({"occupancy"})
 
     source_id: typing.Annotated[int, COMPARABLE, DEFAULT_COMPARABLE]
     source_name: typing.Annotated[str, COMPARABLE, DEFAULT_COMPARABLE]
@@ -61,8 +75,12 @@ class Source:
     comments: str | None = None
 
     @property
-    def __geo_interface__(self):
+    def __geo_interface__(self) -> GeoInterface:
         raise NotImplementedError
+
+    @classmethod
+    def comparable_attrs(cls):
+        return frozenset(cls.default_comparable_attrs | cls.optional_comparable_attrs)
 
     def get(self, key, default=None):
         """
@@ -71,39 +89,140 @@ class Source:
         """
         return getattr(self, key, default)
 
-    def compare(self, other: "Source", check_geom: bool = True, check_attrs: typing.Iterable[str] | None = None) -> Comparison:
-        """
-        Compares this instance with another instance, returning a Comparison object.
-        """
-        if check_attrs is None:
-            check_attrs = self.get_comparable_attrs(default=True)
-        if check_geom is True and self.geom is not None and other.geom is not None:
-            distance = self.geom.distance(other.geom)
-        else:
-            distance = None
-        attrs = {attr: (getattr(self, attr), getattr(other, attr)) for attr in check_attrs}
-        return Comparison(distance=distance, attrs=attrs)
+
+class ExternalSource(Source):
+    @classmethod
+    def from_external(cls, record) -> typing.Self:
+        raise NotImplementedError
+
+
+@dataclass(eq=False)
+class Facility(Source):
+    schema: typing.ClassVar[GeoSchema] = {
+        "geometry": "MultiPolygon",
+        "properties": {
+            "facility_id": "int",
+            "source_facility_id": "str",
+            "name": "str",
+            "source_name": "str",
+            "use": "str",
+            "use_type": "str",
+            "use_subtype": "str",
+            "estimated_occupancy": "int",
+            "last_modified": "date",
+            "change_action": "str",
+            "change_description": "str",
+            "comments": "str",
+            "sql": "str",
+        },
+    }
+
+    geom: Polygon
+    facilities_id: int | None = None
+    facilities_name: str | None = None
+    facilities_use: str | None = None
+    facilities_subtype: str | None = None
+    last_modified: datetime.date | None = None
+    sql: str | None = None
 
     @classmethod
-    def get_comparable_attrs(cls, default: bool = False) -> set[str]:
+    def from_props_and_geom(cls, properties, geom) -> typing.Self:
+        return cls(
+            source_id=properties["source_facility_id"],
+            source_name=properties["source_name"],
+            source_type=properties["use_type"],
+            facilities_id=properties["facility_id"],
+            facilities_name=properties["name"],
+            occupancy=properties["estimated_occupancy"],
+            facilities_use=properties["use"],
+            facilities_subtype=properties["use_subtype"],
+            last_modified=properties["last_modified"],
+            geom=geom,
+        )
+
+    @property
+    def __geo_interface__(self) -> GeoInterface:
+        return {
+            "geometry": self.geom,
+            "properties": {
+                "facility_id": self.facilities_id,
+                "source_facility_id": self.source_id,
+                "name": self.facilities_name,
+                "source_name": self.source_name,
+                "use": self.facilities_use,
+                "use_type": self.source_type,
+                "use_subtype": self.facilities_subtype,
+                "estimated_occupancy": self.occupancy,
+                "last_modified": self.last_modified,
+                "change_action": self.change_action,
+                "change_description": self.change_description,
+                "comments": "",
+                "sql": self.sql,
+            },
+        }
+
+    def update_from_other(self, other: ExternalSource, check_attrs: set[str] = Source.default_comparable_attrs):
+        # Compare geometry
+        distance = self.geom.distance(other.geom) if other.geom is not None else None
+        if distance is None:
+            self.change_action = ChangeAction.UPDATE_GEOM
+            self.change_description = "Geom: missing"
+        elif distance < DISTANCE_THRESHOLD:
+            self.change_action = ChangeAction.UPDATE_GEOM
+            self.change_description = f"Geom: {distance:.1f}m"
+
+        # Compare attributes
+        attrs = {attr: (getattr(self, attr), getattr(other, attr)) for attr in check_attrs}
+        changed_attrs = {k: (a, b) for k, (a, b) in attrs.items() if a != b}
+        if changed_attrs:
+            description = ", ".join(changed_attrs.keys())
+            sql = self._generate_update_sql(changed_attrs)
+            if self.change_action == ChangeAction.UPDATE_GEOM:
+                self.change_action = ChangeAction.UPDATE_GEOM_ATTR
+                self.change_description = f"{self.change_description}, Attrs: {description}"
+                self.sql = sql
+            else:
+                self.change_action = ChangeAction.UPDATE_ATTR
+                self.change_description = f"Attrs: {description}"
+                self.sql = sql
+
+    def _generate_update_sql(self, changed_attrs: dict[str, tuple[str, str]]) -> str | None:
         """
-        Return a set of all comparable attributes for this class,
-        being all those with a type hint of typing.Annotated[<type>, COMPARABLE].
-        If default is True, only default comparable attributes will be returned.
+        Generates an SQL UPDATE query to update the NZ Facilities database
+        with the changes described in the passed comparison object.
         """
-        comparable_attrs = set()
-        if default is True:
-            check_vals = {COMPARABLE, DEFAULT_COMPARABLE}
+        sql = "UPDATE facilities_lds.nz_facilities\nSET\n"
+        for attr, (old, new) in changed_attrs.items():
+            match attr:
+                case "source_name":
+                    sql += f"  name='{new}',\n  source_name='{new}',\n"
+                case "source_type":
+                    sql += f"  use_type='{new}',\n"
+                case "occupancy":
+                    sql += f"  estimated_occupancy='{new}',\n"
+        sql += "  last_modified=CURRENT_DATE\n"
+        sql += f"WHERE facility_id={self.facilities_id} AND source_facility_id={self.source_id};"
+        return sql
+
+
+def compare_facilities(
+    facilities: dict[int, Facility], external_sources: dict[int, ExternalSource], comparison_attrs: set[str]
+) -> tuple[dict[int, Facility], dict[int, ExternalSource]]:
+    """
+    Compares a collection of schools from the MOE dataset with a collection of
+    schools from the current facilities dataset. Each facilities school is
+    marked with whether it should be updated (if it is still in the MOE dataset,
+    but its location or attributes have changed) or removed (if it is no longer
+    in the MOE dataset). MOE schools which are not in the facilities are marked
+    to be added.
+    """
+    for facility_id, facility in facilities.items():
+        external_match = external_sources.get(facility_id)
+        if external_match and external_match.change_action != ChangeAction.IGNORE:
+            facility.update_from_other(external_match, check_attrs=comparison_attrs)
         else:
-            check_vals = {COMPARABLE}
-        for attr, type_ in typing.get_type_hints(cls, include_extras=True).items():
-            if typing.get_origin(type_) is typing.Annotated and check_vals.issubset(type_.__metadata__):
-                comparable_attrs.add(attr)
-        return comparable_attrs
-
-
-def get_comparable_attrs(cls_1: type[Source], cls_2: type[Source]) -> set[str]:
-    """
-    Returns a set of comparable attributes shared by the two classes.
-    """
-    return cls_1.get_comparable_attrs() & cls_2.get_comparable_attrs()
+            facility.change_action = ChangeAction.REMOVE
+    for external_source_id, external_source in external_sources.items():
+        if external_source.change_action != ChangeAction.IGNORE and external_source_id not in facilities:
+            external_source.change_action = ChangeAction.ADD
+    return facilities, external_sources

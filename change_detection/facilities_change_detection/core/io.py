@@ -9,9 +9,9 @@ from psycopg2 import extras, OperationalError
 from shapely.geometry import shape
 from tqdm import tqdm
 
-from facilities_change_detection.core.facilities import Source
+from facilities_change_detection.core.facilities import Source, GeoSchema, Facility
 from facilities_change_detection.core.log import get_logger
-from facilities_change_detection.core.schools import GeoSchema, FacilitiesSchool, FatalError
+from facilities_change_detection.core.schools import FatalError
 
 logger = get_logger()
 
@@ -61,7 +61,7 @@ def save_layers_to_gpkg(
         output.writerecords(layer_data)
 
 
-def load_file_source(file: Path) -> dict[int, FacilitiesSchool]:
+def load_file_source(file: Path) -> dict[int, Facility]:
     """
     Loads the facilities from file.
     """
@@ -70,7 +70,7 @@ def load_file_source(file: Path) -> dict[int, FacilitiesSchool]:
         with fiona.open(file) as src:
             for feature in tqdm(src, total=len(src), unit="facilities"):
                 if feature["properties"]["use"] == "School":
-                    facilities_school = FacilitiesSchool.from_props_and_geom(
+                    facilities_school = Facility.from_props_and_geom(
                         properties=feature["properties"], geom=shape(feature["geometry"])
                     )
                     facilities_schools[facilities_school.source_id] = facilities_school
@@ -80,7 +80,7 @@ def load_file_source(file: Path) -> dict[int, FacilitiesSchool]:
         raise FatalError(f"Unable to load file {file}: {error_name} {error}") from error
 
 
-def load_db_source(dbconn_json: dict[str, str]) -> dict[int, FacilitiesSchool]:
+def load_db_source(dbconn_json: dict[str, str]) -> dict[int, Facility]:
     """
     Connects to the database the user desires and queries specific
     facilities table with predetermined filters.
@@ -101,7 +101,7 @@ def load_db_source(dbconn_json: dict[str, str]) -> dict[int, FacilitiesSchool]:
         for feature in tqdm(features, total=len(features), unit="facilities"):
             geom = json.loads(feature.pop("shape"))
             del geom["crs"]
-            facilities_school = FacilitiesSchool.from_props_and_geom(properties=feature, geom=geom)
+            facilities_school = Facility.from_props_and_geom(properties=feature, geom=geom)
             facilities_schools[facilities_school.source_id] = facilities_school
         db_conn.close()
     except OperationalError as error:
