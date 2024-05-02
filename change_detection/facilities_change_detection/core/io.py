@@ -4,12 +4,13 @@ from pathlib import Path
 
 import fiona
 import psycopg2
+import requests
 from fiona.crs import CRS
-from psycopg2 import extras, OperationalError
+from psycopg2 import OperationalError, extras
 from shapely.geometry import shape
 from tqdm import tqdm
 
-from facilities_change_detection.core.facilities import Source, GeoSchema, Facility
+from facilities_change_detection.core.facilities import Facility, GeoSchema, Source
 from facilities_change_detection.core.log import get_logger
 from facilities_change_detection.core.schools import FatalError
 
@@ -118,3 +119,27 @@ def get_error_name(error: BaseException) -> str:
         return f"{module_name}.{error.__class__.__name__}"
     else:
         return error.__class__.__name__
+
+
+def download_file(url: str, output_file: Path, chunk_size=1024) -> Path:
+    """
+    Downloads a file from a supplied URL to a supplied output path.
+
+    Args:
+        url: The URL of the file to download.
+        output_file: The path to save the file to.
+        chunk_size: size in bytes of chunks to download at a time. Defaults to 1024.
+
+    Raises:
+        requests.RequestException [or child Exceptions]: if any network issues
+            occur.
+
+    Returns:
+        The Path where the file has been downloaded to.
+    """
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(output_file, "wb") as f:
+            for chunk in r.iter_content(chunk_size):
+                f.write(chunk)
+    return output_file
