@@ -8,6 +8,11 @@ app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 app.command()(compare_schools)
 app.add_typer(hospitals.app, name="hospitals")
 
-if __name__ == "__main__":
+
+@app.callback()
+def _setup_logging():
     setup_logging()
+
+
+if __name__ == "__main__":
     app()

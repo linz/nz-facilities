@@ -1,10 +1,9 @@
-import datetime
 import typing
 from pathlib import Path
 
 import typer
 
-from facilities_change_detection.core.hospitals import download_hpi_excel
+from facilities_change_detection.core.hospitals import assign_hpi_likelihood, download_hpi_excel, load_hpi_excel
 from facilities_change_detection.core.log import get_logger
 
 logger = get_logger()
@@ -33,7 +32,58 @@ def download_hpi_data(
     if create_output_folder_if_not_exists is True:
         output_folder.mkdir(parents=True, exist_ok=True)
     try:
-        print(logger.getEffectiveLevel())
         download_hpi_excel(output_folder, overwrite)
+    except Exception as e:
+        logger.fatal(e)
+
+
+@app.command()
+def load_hpi_file(
+    input_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-i",
+            "--input-file",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            exists=True,
+            readable=True,
+            help="Path to input HPI Excel file.",
+        ),
+    ],
+    output_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-o",
+            "--output-file",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            writable=True,
+            help="Path to output GeoPackage.",
+        ),
+    ],
+    likelihood_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-l",
+            "--likelihood-file",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            exists=True,
+            readable=True,
+            help="Path to likelihood CSV file.",
+        ),
+    ],
+):
+    try:
+        logger.info("Loading Excel file")
+        gdf = load_hpi_excel(input_file)
+        logger.info("Assigning likelihood")
+        gdf = assign_hpi_likelihood(gdf, likelihood_file)
+        logger.info("Saving GeoPackage")
+        gdf.to_file(output_file)
     except Exception as e:
         logger.fatal(e)
