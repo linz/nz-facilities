@@ -4,11 +4,14 @@ from pathlib import Path
 import typer
 
 from facilities_change_detection.core.hospitals import assign_hpi_likelihood, download_hpi_excel, load_hpi_excel
+from facilities_change_detection.core.io import add_styles_to_gpkg
 from facilities_change_detection.core.log import get_logger
 
 logger = get_logger()
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
+
+HPI_LAYER_STYLE_FILE = Path(__file__).parents[2] / "layer_styles" / "hpi.qml"
 
 
 @app.command()
@@ -84,6 +87,8 @@ def load_hpi_file(
         logger.info("Assigning likelihood")
         gdf = assign_hpi_likelihood(gdf, likelihood_file)
         logger.info("Saving GeoPackage")
-        gdf.to_file(output_file)
+        gdf.to_file(output_file, laywer="hpi")
+        logger.info("Adding layer styles to GeoPackage")
+        add_styles_to_gpkg(output_file, {"hpi": HPI_LAYER_STYLE_FILE.read_text()})
     except Exception as e:
         logger.fatal(e)

@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import typing
 from pathlib import Path
 
@@ -31,6 +32,45 @@ SELECT
 FROM
     {schema}.{table}
 WHERE use = 'School'
+"""
+
+LAYER_STYLES_CREATE_SQL = """
+CREATE TABLE IF NOT EXISTS layer_styles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    f_table_catalog TEXT(256),
+    f_table_schema TEXT(256),
+    f_table_name TEXT(256),
+    f_geometry_column TEXT(256),
+    styleName TEXT(30),
+    styleQML TEXT,
+    styleSLD TEXT,
+    useAsDefault BOOLEAN,
+    description TEXT,
+    owner TEXT(30),
+    ui TEXT(30),
+    update_time DATETIME DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+"""
+
+LAYER_STYLES_INSERT_SQL = """
+INSERT OR REPLACE INTO layer_styles (
+    f_table_catalog,
+    f_table_schema,
+    f_table_name,
+    f_geometry_column,
+    styleName,
+    styleQML,
+    styleSLD,
+    useAsDefault,
+    description,
+    owner
+)
+VALUES ('', '', (?), 'geom', 'Style', (?), '', true, '', '');
+"""
+
+GPKG_CONTENTS_INSERT_SQL = """
+INSERT OR REPLACE INTO gpkg_contents (table_name, data_type, identifier, description, srs_id)
+VALUES ((?), (?), (?), (?), (?));
 """
 
 
@@ -143,3 +183,28 @@ def download_file(url: str, output_file: Path, chunk_size=1024) -> Path:
             for chunk in r.iter_content(chunk_size):
                 f.write(chunk)
     return output_file
+
+
+def add_styles_to_gpkg(gpkg_file: Path, layer_styles: dict[str, str]) -> None:
+    """
+    Adds QGIS layer styles to a GeoPackage.
+
+    Args:
+        gpkg_file: The GeoPackage to add the layer styles to.
+        layer_styles: A dictionary mapping layer name keys to a string of a
+            QGIS QML layer style definition.
+    """
+    connection = sqlite3.connect(gpkg_file)
+    cursor = connection.cursor()
+    cursor.execute("BEGIN TRANSACTION")
+    try:
+        cursor.execute(LAYER_STYLES_CREATE_SQL)
+        cursor.executemany(
+            LAYER_STYLES_INSERT_SQL,
+            [(layer_name, layer_style) for layer_name, layer_style in layer_styles.items()],
+        )
+        cursor.execute(GPKG_CONTENTS_INSERT_SQL, ("layer_styles", "attributes", "layer_styles", "", 0))
+        cursor.execute("COMMIT;")
+    except Exception:
+        logger.error("Error adding layer styles to GeoPackage, rolling back.")
+        cursor.execute("ROLLBACK;")
