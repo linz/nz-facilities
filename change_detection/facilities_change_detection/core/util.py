@@ -1,6 +1,8 @@
 import re
 import unicodedata
+from typing import Any
 
+import geopandas as gpd
 import pandas as pd
 
 
@@ -83,3 +85,66 @@ def strip_column_values(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     """
     df[cols] = df[cols].apply(lambda col: col.str.strip())
     return df
+
+
+def df_to_dict(df: pd.DataFrame | gpd.GeoDataFrame, key_column: str) -> dict[str, dict[str, Any]]:
+    """
+    Converts a DataFrame to a dictionary.
+
+    The keys of the returned dictionary will be the values from the column in the
+    DataFrame named `key_column`. The values of the returned dictionary will be
+    a dictionary mapping column name to value for each row in the DataFrame.
+    For example, a DataFrame like this:
+
+    | col_1 | col_2 | col_3 |
+    |-------|-------|-------|
+    |   "a" |   1.0 | "foo" |
+    |   "b" |   2.0 | "bar" |
+    |   "c" |   3.0 | "baz" |
+
+    Using col_1 as the `key_column`, would be turned into the following dictionary:
+
+    {
+        "a": {"col_2": 1.0, "col_3", "foo"},
+        "b": {"col_2": 2.0, "col_3", "bar"},
+        "c": {"col_2": 3.0, "col_3", "baz"}
+    }
+
+    Args:
+        df: The DataFrame to convert to a dictionary.
+        key_column: A column in the DataFrame which contains unique values,
+            the values from which will be used as keys in the returned
+            dictionary.
+
+    Raises:
+        ValueError: If the key_column in the supplied DataFrame contains
+            duplicated values.
+
+    Returns:
+        A dictionary derived from the supplied DataFrame.
+    """
+    if not df[key_column].is_unique:
+        raise ValueError(f"Cannot convert DataFrame to a dict, column {key_column} contains duplicated values")
+    d = {}
+    for row in df.itertuples():
+        key = getattr(row, key_column)
+        row_dict = row._asdict()
+        del row_dict["Index"]
+        del row_dict[key_column]
+        d[key] = row_dict
+    return d
+
+
+def dict_to_df(d: dict[str, dict[str, Any]], key_column: str) -> pd.DataFrame:
+    """
+    Converts a dictionary of the format produced by `df_to_dict` to a DataFrame
+
+    Args:
+        d: The dictionary to convert.
+        key_column: The name of the column which the keys of the supplied
+            dictionary will be added to as values.
+
+    Returns:
+        A DataFrame derived from the supplied Dictionary.
+    """
+    return pd.DataFrame([{key_column: k, **v} for k, v in d.items()])

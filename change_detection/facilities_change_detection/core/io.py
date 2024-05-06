@@ -208,3 +208,42 @@ def add_styles_to_gpkg(gpkg_file: Path, layer_styles: dict[str, str]) -> None:
     except Exception:
         logger.error("Error adding layer styles to GeoPackage, rolling back.")
         cursor.execute("ROLLBACK;")
+
+
+def get_layer_style_content(file_name: str) -> str:
+    """
+    Loads a QGIS layer style file from the layer_styeles directory.
+
+    Args:
+        file_name: The layer style file to open
+
+    Raises:
+        FileNotFoundError: If the supplied file_name isn't present in the
+            layer_styles directory, or it resolves to a Path which is not
+            a file.
+
+    Returns:
+        The contents of the layer style file.
+    """
+    style_file = Path(__file__).parents[1] / "layer_styles" / file_name
+    if not style_file.exists() or not style_file.is_file():
+        raise FileNotFoundError(f'Cannot find style file "{file_name}"')
+    else:
+        return style_file.read_text()
+
+
+def get_layer_styles(layers: dict[str, str]) -> dict[str, str]:
+    """
+    Takes a mapping of layer names to layer style file names inside the
+    layer_styles directory, reads the content of each file, and returns a
+    mapping of layer names to style definitions.
+
+    Args:
+        layers: Dictionary with keys of layer names, and values of file names
+            of a QGIS layer style file which exists within the layer_styles
+            directory.
+
+    Returns:
+        Dictionary of layer names to style definitions.
+    """
+    return {layer_name: get_layer_style_content(file_name) for layer_name, file_name in layers.items()}

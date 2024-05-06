@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import Any
 from urllib.parse import urljoin
 
 import geopandas as gpd
@@ -8,13 +9,22 @@ import openpyxl
 import pandas as pd
 import requests
 
+from facilities_change_detection.core.facilities import DISTANCE_THRESHOLD, ChangeAction
 from facilities_change_detection.core.io import download_file
 from facilities_change_detection.core.log import get_logger
-from facilities_change_detection.core.util import filter_df_columns, strip_column_values
+from facilities_change_detection.core.util import df_to_dict, dict_to_df, filter_df_columns, strip_column_values
 
 logger = get_logger()
 
-HPI_EXCEL_PAGE_URL = "https://www.tewhatuora.govt.nz/for-health-professionals/data-and-statistics/nz-health-statistics/data-references/code-tables/common-code-tables/"
+# The URL of the page which links to the HPI Excel files
+HPI_EXCEL_PAGE_URL = (
+    "https://www.tewhatuora.govt.nz/"
+    "for-health-professionals/data-and-statistics/nz-health-statistics/"
+    "data-references/code-tables/common-code-tables/"
+)
+# Columns to read from an HPI Excel file. The keys are the column names
+# following standardisation using util.standardise_column_name, and the values
+# are what the column will be renamed to.
 HPI_COLUMNS_OF_INTEREST = {
     "name": "name",
     "hpi_facility_id": "hpi_facility_id",
@@ -25,6 +35,10 @@ HPI_COLUMNS_OF_INTEREST = {
     "nzgd2k_x": "x",
     "nzgd2k_y": "y",
 }
+# Columns to compare for changes when comparing NZ Facilities data to HPI data.
+# Keys are column names in NZ Facilities, with values of column names to compare
+# against in the HPI data.
+FACILITIES_HPI_COMPARISON_COLUMNS = {"name": "name", "use_subtype": "type"}
 
 
 def download_hpi_excel(output_folder: Path, overwrite: bool) -> Path:
@@ -63,7 +77,7 @@ def download_hpi_excel(output_folder: Path, overwrite: bool) -> Path:
     # Parse HTML of landing page
     tree = lxml.html.fromstring(r.content)
     # Find all <a> elements with a class of "download__link" who are descendents
-    # of a <div? element whose id value starts with "facility-code-table"
+    # of a <div> element whose id value starts with "facility-code-table"
     els = tree.xpath('//div[starts-with(@id,"facility-code-table")]//a[@class="download__link"]')
     # If there isn't a single element, raise an exception
     if len(els) != 1:
@@ -110,14 +124,30 @@ def standardise_hpi_type(col: pd.Series) -> pd.Series:
         ("–", "-", False),
         # All the others seem to be in the form of "thing - suffix", apart from
         # this one in the form "thing (suffix)"
-        (" (not otherwise specified)$", "- not otherwise specified", True),
+        (r" \(not otherwise specified\)$", " - not otherwise specified", True),
     ]
     for pattern, replacement, regex in ops:
         col = col.str.replace(pattern, replacement, regex=regex)
     return col
 
 
-def load_hpi_excel(input_file: Path) -> gpd.GeoDataFrame:
+def get_hpi_ids_to_ignore(ignore_file: Path) -> set[str]:
+    """
+    Loads a CSV of HPI ids to ignore. The CSV must have a column named
+    "hpi_facility_id". Other columns can be present but are ignore by
+    this function.
+
+    Args:
+        ignore_file: Path to the CSV file to read.
+
+    Returns:
+        Set of the ids to ignore.
+    """
+    df = pd.read_csv(ignore_file, usecols=["hpi_facility_id"])
+    return set(df["hpi_facility_id"])
+
+
+def load_hpi_excel(input_file: Path, ignore_file: Path | None = None) -> gpd.GeoDataFrame:
     """
     Loads an HPI Excel file to a GeoPandas GeoDataFrame.
 
@@ -131,6 +161,10 @@ def load_hpi_excel(input_file: Path) -> gpd.GeoDataFrame:
       in the `standardise_hpi_type` function.
     - Convert the initial Pandas DataFrame to a GeoPandas GeoDataFrame using
       coordinates in the "x" and "y" columns, which are then dropped.
+    - Reproject the GeoDataFrame to NZTM.
+
+    If a path to an ignore file is passed, any features with an hpi_facility_id
+    which appears in the ignore file will be filtered out.
 
     Args:
         input_file: A path to an HPI Excel file.
@@ -151,6 +185,11 @@ def load_hpi_excel(input_file: Path) -> gpd.GeoDataFrame:
     df = filter_df_columns(df, HPI_COLUMNS_OF_INTEREST)
     # Strip leading and trailing whitespace from these columns
     df = strip_column_values(df, ["name", "address", "type", "organisation_name"])
+    # If an ignore file was supplied,
+    # load the IDS from that file and filter them out.
+    if ignore_file is not None:
+        ids_to_ignore = get_hpi_ids_to_ignore(ignore_file)
+        df = df[~df["hpi_facility_id"].isin(ids_to_ignore)]
     # Strip a trailing comma from some address columns - this was present in
     # many rows in old data, so removing it helps remove false positives when
     # comparing that old data to new data
@@ -158,6 +197,7 @@ def load_hpi_excel(input_file: Path) -> gpd.GeoDataFrame:
     df["type"] = standardise_hpi_type(df["type"])
     # Convert the Pandas DataFrame to a Geopandas GeoDataFrame
     gdf = gpd.GeoDataFrame(data=df, geometry=gpd.points_from_xy(df.x, df.y), crs=4167)
+    gdf = gdf.to_crs(2193)
     gdf.drop(columns=["x", "y"], inplace=True)
     return gdf
 
@@ -223,3 +263,106 @@ def assign_hpi_likelihood(gdf: gpd.GeoDataFrame, likelihood_file: Path):
     for func in [update_midwife_likelihood]:
         gdf = func(gdf)
     return gdf
+
+
+def compare_facilities_gdf_to_hpi_gdf(
+    facilities_gdf: gpd.GeoDataFrame, hpi_gdf: gpd.GeoDataFrame
+) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame]:
+    """
+    Compares GeoDataFrames of hospitals from NZ Facilities data with HPI data.
+
+    Args:
+        facilities_gdf: GeoDataFrame of Hospitals in Facilities data, from
+            `read_hospital_facilities`.
+        hpi_gdf: GeoDataFrame of HPI data, from `load_hpi_excel`.
+
+    Returns:
+        Three GeoDataFrames:
+        1. `updated_facilities_gdf`: the supplied `facilities_gdf` with added
+           columns `change_action` and `change_description` describing whether
+           a feature needs to be updated or removed.
+        2. `hpi_new_gdf`: features from the HPI data not present in the
+           Facilities data.
+        3. `hpi_matched_gdf`: features from the HPI data which were present in
+           the Falities data.
+    """
+    # Initialise these two columns with None
+    facilities_gdf["change_action"] = None
+    facilities_gdf["change_description"] = None
+    # Convert the two GeoDataFrames to dictionarys
+    facilities_dict = df_to_dict(facilities_gdf, "source_facility_id")
+    hpi_dict = df_to_dict(hpi_gdf, "hpi_facility_id")
+    # Initialise dicts to track HPI features which are new or which match
+    # features in `facilities_gdf`
+    new: dict[str, dict[str, Any]] = {}
+    matched: dict[str, dict[str, Any]] = {}
+    # Iterate through features from the HPI data
+    for hpi_facility_id, hpi_attrs in hpi_dict.items():
+        facilities_attrs = facilities_dict.get(hpi_facility_id)
+        # If hpi_facility_id was not in the facilities dict,
+        # add the feature to the new dict
+        if facilities_attrs is None:
+            new[hpi_facility_id] = hpi_attrs
+        else:
+            # Add the HPI feature to the matched dict
+            matched[hpi_facility_id] = hpi_attrs
+            # Get the geometries for the two features
+            hpi_geom = hpi_attrs["geometry"]
+            facilities_geom = facilities_attrs["geometry"]
+            # Calculate the distance between the two. If `hpi_geom` is missing,
+            # set the distance to be None.
+            distance = facilities_geom.distance(hpi_geom) if hpi_geom else None
+            # If the distance was None, update the change action and description
+            # to say the geometry was missing.
+            if distance is None:
+                facilities_attrs["change_action"] = ChangeAction.UPDATE_GEOM
+                facilities_attrs["change_description"] = "Geom: missing"
+            # If the distance is greater than the threshold,
+            # update the change action and description.
+            elif distance > DISTANCE_THRESHOLD:
+                facilities_attrs["change_action"] = ChangeAction.UPDATE_GEOM
+                facilities_attrs["change_description"] = f"Geom: {distance:.1f}m"
+            # Loop through the columns to compare, and if they are different,
+            # add the old and new values to the changes.
+            attr_changes: dict[str, tuple[str, str]] = {}
+            for facilities_col, hpi_col in FACILITIES_HPI_COMPARISON_COLUMNS.items():
+                if facilities_attrs[facilities_col] != hpi_attrs[hpi_col]:
+                    attr_changes[facilities_col] = (facilities_attrs[facilities_col], hpi_attrs[hpi_col])
+                    facilities_attrs[f"hpi_{hpi_col}"] = hpi_attrs[hpi_col]
+            # If there were any changes to attributes in the columns we compared,
+            # update the change action and description.
+            if attr_changes:
+                description = ";  ".join([f'{field}: "{old}" -> "{new}"' for field, (old, new) in attr_changes.items()])
+                if facilities_attrs["change_action"] == ChangeAction.UPDATE_GEOM:
+                    facilities_attrs["change_action"] = ChangeAction.UPDATE_GEOM_ATTR
+                    facilities_attrs["change_description"] += f";  {description}"
+                else:
+                    facilities_attrs["change_action"] = ChangeAction.UPDATE_ATTR
+                    facilities_attrs["change_description"] = description
+    # Iterate through features from the Facilities data
+    for source_facility_id, facilities_attrs in facilities_dict.items():
+        # If any source_facility_id is not present in the HPI data,
+        # mark it to be removed.
+        if source_facility_id not in hpi_dict:
+            facilities_attrs["change_action"] = ChangeAction.REMOVE
+    # Convert the dictionaries back to GeoDataFrames
+    updated_facilities_gdf = gpd.GeoDataFrame(dict_to_df(facilities_dict, "source_facility_id"), geometry="geometry", crs=2193)
+    hpi_new_gdf = gpd.GeoDataFrame(dict_to_df(new, "hpi_facility_id"), geometry="geometry", crs=2193)
+    hpi_matched_gdf = gpd.GeoDataFrame(dict_to_df(matched, "hpi_facility_id"), geometry="geometry", crs=2193)
+    return updated_facilities_gdf, hpi_new_gdf, hpi_matched_gdf
+
+
+def read_hospital_facilities(input_file: Path) -> gpd.GeoDataFrame:
+    """
+    Reads an input Facilities GeoPackage, and returns a GeoDataFrame of
+    its contents, filtered to only include Hospital features.
+
+    Args:
+        input_file: The Path to the NZ Facilities GeoPackage
+
+    Returns:
+        A GeoDataFrame of Hospital features.
+    """
+    facilities_gdf = gpd.read_file(input_file)
+    facilities_gdf = facilities_gdf[facilities_gdf["use"] == "Hospital"]
+    return facilities_gdf
