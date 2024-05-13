@@ -1,13 +1,15 @@
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urljoin
 
+import chompjs
 import geopandas as gpd
 import lxml.html
 import openpyxl
 import pandas as pd
 import requests
+from tqdm import tqdm
 
 from facilities_change_detection.core.facilities import DISTANCE_THRESHOLD, ChangeAction
 from facilities_change_detection.core.io import download_file
@@ -39,6 +41,12 @@ HPI_COLUMNS_OF_INTEREST = {
 # Keys are column names in NZ Facilities, with values of column names to compare
 # against in the HPI data.
 FACILITIES_HPI_COMPARISON_COLUMNS = {"name": "name", "use_subtype": "type"}
+
+HEALTHCERT_MAP_URLS = {
+    "Public hospital": "https://www.health.govt.nz/your-health/certified-providers/public-hospital",
+    "Private hospital": "https://www.health.govt.nz/your-health/certified-providers/ngo-hospital",
+    "Rest home": "https://www.health.govt.nz/your-health/certified-providers/aged-care",
+}
 
 
 def download_hpi_excel(output_folder: Path, overwrite: bool) -> Path:
@@ -366,3 +374,98 @@ def read_hospital_facilities(input_file: Path) -> gpd.GeoDataFrame:
     facilities_gdf = gpd.read_file(input_file)
     facilities_gdf = facilities_gdf[facilities_gdf["use"] == "Hospital"]
     return facilities_gdf
+
+
+def scrape_healthcert_info_page(info_page_url: str) -> dict[str, str | int | None]:
+    """
+    Scrapes an info page for a single feature, linked from the popup tooltip on
+    the map on a HealthCERT map page.
+
+    Args:
+        info_page_url: The URL to scrape.
+
+    Raises:
+        RuntimeError: If any step of parsing the content fails.
+        requests.RequestException [or child Exceptions]: if any network issues
+            occur.
+
+    Returns:
+        A dictionary with the desired attributes extracted from the page.
+    """
+    r = requests.get(info_page_url)
+    r.raise_for_status()
+    tree = lxml.html.fromstring(r.text)
+    try:
+        name = tree.xpath("//th[text()='Premises name']/following-sibling::td")[0].text
+        address = tree.xpath("//th[text()='Address']/following-sibling::td")[0].text
+        occupancy = int(tree.xpath("//th[text()='Total beds']/following-sibling::td")[0].text)
+        service_types = tree.xpath("//th[text()='Service types']/following-sibling::td")[0].text
+    except (IndexError, ValueError, TypeError) as e:
+        raise RuntimeError("Failed to parse attributes from page HTML") from e
+    return {"name": name, "address": address, "occupancy": occupancy, "service_types": service_types}
+
+
+def scrape_healthcert_map_page(
+    kind: Literal["Public hospital", "Private hospital", "Rest home"], show_progressbar: bool
+) -> gpd.GeoDataFrame:
+    """
+    Scrapes features from a HealthCERT map page by parsing the HTML of the map
+    page, then the HTML of each linked info page, collating everything to a
+    GeoPandas GeoDataFrame.
+
+    This function, and `scrape_healthcert_info_page` which this calls, is
+    tightly coupled to the markup of the pages to be parsed. Any changes to the
+    design of the pages will very likely cause these functions to stop working.
+
+    Args:
+        kind: Which map to scrape.
+
+    Raises:
+        RuntimeError: If any step of parsing the content fails.
+        requests.RequestException [or child Exceptions]: if any network issues
+            occur.
+
+    Returns:
+        A GeoDataFrame containing all features from the map.
+    """
+    map_page_url = HEALTHCERT_MAP_URLS[kind]
+    logger.info(f"Scraping {kind.lower()} features from {map_page_url}")
+    r = requests.get(map_page_url)
+    r.raise_for_status()
+    tree = lxml.html.fromstring(r.text)
+    try:
+        script_el = tree.xpath("//script[contains(text(), '\"leaflet\":')]")[0]
+    except IndexError as e:
+        raise RuntimeError(f"Cannot find javascript variable containing map definition in {map_page_url}") from e
+    script_data = chompjs.parse_js_object(script_el.text)
+    try:
+        raw_features = script_data["leaflet"][0]["features"]
+    except (IndexError, KeyError) as e:
+        raise RuntimeError("Cannot find list of features inside map javascript data") from e
+    features = []
+    if show_progressbar is True:
+        pbar = tqdm(total=len(raw_features), unit="feat")
+    for raw_feature in raw_features:
+        try:
+            popup = raw_feature["popup"]
+            lat = raw_feature["lat"]
+            lon = raw_feature["lon"]
+        except KeyError as e:
+            raise RuntimeError('Leflet map feature does not have required attributes ("popup", "lat", "lon")') from e
+        match = re.match(r'.+<br /><a href="(.+?)"', popup)
+        if not match:
+            raise RuntimeError(f'Failed to parse URL from "popup" attribute: {popup}')
+        url_fragment = match.group(1)
+        info_page_url = urljoin(map_page_url, url_fragment)
+        feature = scrape_healthcert_info_page(info_page_url)
+        feature.update(kind=kind, lat=lat, lon=lon)
+        features.append(feature)
+        if show_progressbar is True:
+            pbar.update()
+    if show_progressbar is True:
+        pbar.close()
+    df = pd.DataFrame(features)
+    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(x=df["lon"], y=df["lat"], crs=4326))
+    gdf.drop(columns=["lon", "lat"], inplace=True)
+    gdf.to_crs(2193)
+    return gdf

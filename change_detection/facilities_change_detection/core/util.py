@@ -148,3 +148,27 @@ def dict_to_df(d: dict[str, dict[str, Any]], key_column: str) -> pd.DataFrame:
         A DataFrame derived from the supplied Dictionary.
     """
     return pd.DataFrame([{key_column: k, **v} for k, v in d.items()])
+
+
+def gdf_concat(gdfs: list[gpd.GeoDataFrame]) -> gpd.GeoDataFrame:
+    """
+    Concatenates a list of GeoPandas GeoDataFrames. If the list contains a
+    single item, it will be returned, else each GeoDataFrame in the list
+    will be concatenated together.
+
+    Args:
+        gdfs: A list of GeoDataFrames to concatenate.
+
+    Raises:
+        ValueError: If an empty list was passed.
+
+    Returns:
+        A single GeoDataFrame.
+    """
+    match len(gdfs):
+        case 0:
+            raise ValueError("Received empty list")
+        case 1:
+            return gdfs[0]
+        case _:
+            return gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))

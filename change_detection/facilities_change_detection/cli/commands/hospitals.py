@@ -1,7 +1,11 @@
+import datetime as dt
 import typing
+from enum import Enum
 from pathlib import Path
 
+import click
 import typer
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 from facilities_change_detection.core.hospitals import (
     assign_hpi_likelihood,
@@ -9,9 +13,11 @@ from facilities_change_detection.core.hospitals import (
     download_hpi_excel,
     load_hpi_excel,
     read_hospital_facilities,
+    scrape_healthcert_map_page,
 )
 from facilities_change_detection.core.io import add_styles_to_gpkg, get_layer_styles
 from facilities_change_detection.core.log import get_logger
+from facilities_change_detection.core.util import gdf_concat
 
 logger = get_logger()
 
@@ -40,6 +46,73 @@ def download_hpi_data(
         output_folder.mkdir(parents=True, exist_ok=True)
     try:
         download_hpi_excel(output_folder, overwrite)
+    except Exception as e:
+        logger.fatal(e)
+
+
+healthcert_kinds = {"public": "Public hospital", "private": "Private hospital", "resthome": "Rest home", "all": "all"}
+
+
+def validate_healthcert_kinds_args(kind_codes: list[str]) -> tuple[list[str], str]:
+    # Convert the list of kind_codes to a set to remove any duplicates
+    kind_codes = set(kind_codes)
+    # Remove "all" from the list of allowed kinds
+    healthcert_kinds.pop("all")
+    # If "all" was one of the kind_codes we received, or we received every
+    # possible option, return a list of all the options with a name of "all"
+    if "all" in kind_codes or kind_codes == healthcert_kinds.keys():
+        kinds = list(healthcert_kinds.values())
+        kinds_name = "all"
+    # Else, return a list of the kinds with a name of their codes,
+    # separated by commas
+    else:
+        # Sort the set first to ensure the order is always the same
+        kind_codes = sorted(kind_codes)
+        kinds = [healthcert_kinds[kind_code] for kind_code in kind_codes]
+        kinds_name = ",".join(kind_codes)
+    return kinds, kinds_name
+
+
+@app.command()
+def download_healthcert_data(
+    output_folder: typing.Annotated[
+        Path,
+        typer.Option(
+            "-o",
+            "--output-folder",
+            dir_okay=True,
+            file_okay=False,
+            resolve_path=True,
+            help="Folder where you want to download the data to.",
+        ),
+    ] = Path.cwd() / "source_data",
+    kind_codes: typing.Annotated[
+        list[str],
+        typer.Option(
+            "-k",
+            "--kind",
+            click_type=click.Choice(choices=healthcert_kinds.keys()),
+            help="Which HealthCERT webmap to scrape more chars.",
+        ),
+    ] = ["all"],
+    overwrite: typing.Annotated[bool, typer.Option(help="Whether to overwrite an existing file with the same name.")] = False,
+    create_output_folder_if_not_exists: typing.Annotated[
+        bool, typer.Option("--create", help="Whether to create the output folder if it doesn't exist.")
+    ] = True,
+    progress: typing.Annotated[bool, typer.Option(help="Show progress bars")] = True,
+):
+    if create_output_folder_if_not_exists is True:
+        output_folder.mkdir(parents=True, exist_ok=True)
+    try:
+        kinds, kinds_name = validate_healthcert_kinds_args(kind_codes)
+        if progress is True:
+            with logging_redirect_tqdm(loggers=[logger]):
+                gdfs = [scrape_healthcert_map_page(kind, progress) for kind in kinds]
+        else:
+            gdfs = [scrape_healthcert_map_page(kind, progress) for kind in kinds]
+        gdf = gdf_concat(gdfs)
+        output_file = output_folder / f"healthcert__{kinds_name}__{dt.date.today()}.gpkg"
+        gdf.to_file(output_file)
     except Exception as e:
         logger.fatal(e)
 
