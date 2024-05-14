@@ -1,6 +1,6 @@
 import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 from urllib.parse import urljoin
 
 import chompjs
@@ -14,7 +14,13 @@ from tqdm import tqdm
 from facilities_change_detection.core.facilities import DISTANCE_THRESHOLD, ChangeAction
 from facilities_change_detection.core.io import download_file
 from facilities_change_detection.core.log import get_logger
-from facilities_change_detection.core.util import df_to_dict, dict_to_df, filter_df_columns, strip_column_values
+from facilities_change_detection.core.util import (
+    convert_intlike_cols_to_nullable_int,
+    df_to_dict,
+    dict_to_df,
+    filter_df_columns,
+    strip_column_values,
+)
 
 logger = get_logger()
 
@@ -40,13 +46,18 @@ HPI_COLUMNS_OF_INTEREST = {
 # Columns to compare for changes when comparing NZ Facilities data to HPI data.
 # Keys are column names in NZ Facilities, with values of column names to compare
 # against in the HPI data.
-FACILITIES_HPI_COMPARISON_COLUMNS = {"name": "name", "use_subtype": "type"}
-
+FACILITIES_HPI_COMPARISON_COLUMNS = {"name": "name", "use_subtype": "type", "estimated_occupancy": "occupancy"}
+# URLs of pages with maps of HealthCERT featuress to scrape
 HEALTHCERT_MAP_URLS = {
     "Public hospital": "https://www.health.govt.nz/your-health/certified-providers/public-hospital",
     "Private hospital": "https://www.health.govt.nz/your-health/certified-providers/ngo-hospital",
-    "Rest home": "https://www.health.govt.nz/your-health/certified-providers/aged-care",
+    # "Rest home": "https://www.health.govt.nz/your-health/certified-providers/aged-care",
 }
+
+
+##########################
+## Fetch 3rd party data ##
+##########################
 
 
 def download_hpi_excel(output_folder: Path, overwrite: bool) -> Path:
@@ -107,52 +118,107 @@ def download_hpi_excel(output_folder: Path, overwrite: bool) -> Path:
     return download_file(download_url, output_file)
 
 
-def standardise_hpi_type(col: pd.Series) -> pd.Series:
+def download_healthcert_gpkg(show_progressbar: bool) -> gpd.GeoDataFrame:
     """
-    Standardises values in the "type" column of the HPI data by performing
-    a series of replacement operations on the column.
+    Scrapes features from the webmaps of Public and Private Hospitals certified
+    by HealthCERT on the Ministry of Health website.
+
+    This function, and the child functions `scrape_healthcert_map_page` and
+    `scrape_healthcert_map_page` which are called by it, are tightly coupled to
+    the markup of the pages to be parsed. Any changes to the design of the pages
+    will very likely cause these functions to stop working.
 
     Args:
-        col: The "type" column from an HPI DataFrame.
+        show_progressbar: Whether to show a progress bar.
+
+    Raises:
+        RuntimeError: If any step of parsing the content fails.
+        requests.RequestException [or child Exceptions]: if any network issues
+            occur.
 
     Returns:
-        The supplied "type" column with values standardised.
+        A GeoDataFrame containing all features from the map.
     """
-    ops = [
-        # Add space before and after forward slashes
-        (r"(?<=\S)\/", " /", True),
-        (r"\/(?=\S)", "/ ", True),
-        # Replace en dash with hyphenminus. This would be better to use the
-        # unicode character class \p{Dash_Punctuation}, but pandas uses the
-        # builtin Python regex engine with doesn't support this, and given there
-        # only seems to be an en dash in some older HPI Excel files, it seems
-        # better just to search for that and still use pandas than have to drop
-        # down to using the regex 3rd party library which doesn support unicode
-        # character classes.
-        ("–", "-", False),
-        # All the others seem to be in the form of "thing - suffix", apart from
-        # this one in the form "thing (suffix)"
-        (r" \(not otherwise specified\)$", " - not otherwise specified", True),
-    ]
-    for pattern, replacement, regex in ops:
-        col = col.str.replace(pattern, replacement, regex=regex)
-    return col
+    gdfs = [scrape_healthcert_map_page(kind, show_progressbar) for kind in HEALTHCERT_MAP_URLS.keys()]
+    return gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
 
 
-def get_hpi_ids_to_ignore(ignore_file: Path) -> set[str]:
+def scrape_healthcert_map_page(kind, show_progressbar: bool) -> gpd.GeoDataFrame:
+    map_page_url = HEALTHCERT_MAP_URLS[kind]
+    logger.info(f"Scraping {kind.lower()} features from {map_page_url}")
+    r = requests.get(map_page_url)
+    r.raise_for_status()
+    tree = lxml.html.fromstring(r.text)
+    try:
+        script_el = tree.xpath("//script[contains(text(), '\"leaflet\":')]")[0]
+    except IndexError as e:
+        raise RuntimeError(f"Cannot find javascript variable containing map definition in {map_page_url}") from e
+    script_data = chompjs.parse_js_object(script_el.text)
+    try:
+        raw_features = script_data["leaflet"][0]["features"]
+    except (IndexError, KeyError) as e:
+        raise RuntimeError("Cannot find list of features inside map javascript data") from e
+    features = []
+    if show_progressbar is True:
+        pbar = tqdm(total=len(raw_features), unit="feat")
+    for raw_feature in raw_features:
+        try:
+            popup = raw_feature["popup"]
+            lat = raw_feature["lat"]
+            lon = raw_feature["lon"]
+        except KeyError as e:
+            raise RuntimeError('Leflet map feature does not have required attributes ("popup", "lat", "lon")') from e
+        match = re.match(r'.+<br /><a href="(.+?)"', popup)
+        if not match:
+            raise RuntimeError(f'Failed to parse URL from "popup" attribute: {popup}')
+        url_fragment = match.group(1)
+        info_page_url = urljoin(map_page_url, url_fragment)
+        feature = scrape_healthcert_info_page(info_page_url)
+        feature.update(kind=kind, lat=lat, lon=lon)
+        features.append(feature)
+        if show_progressbar is True:
+            pbar.update()
+    if show_progressbar is True:
+        pbar.close()
+    df = pd.DataFrame(features)
+    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(x=df["lon"], y=df["lat"], crs=4326))
+    gdf.drop(columns=["lon", "lat"], inplace=True)
+    gdf.to_crs(2193)
+    return gdf
+
+
+def scrape_healthcert_info_page(info_page_url: str) -> dict[str, str | int | None]:
     """
-    Loads a CSV of HPI ids to ignore. The CSV must have a column named
-    "hpi_facility_id". Other columns can be present but are ignore by
-    this function.
+    Scrapes an info page for a single feature, linked from the popup tooltip on
+    the map on a HealthCERT map page.
 
     Args:
-        ignore_file: Path to the CSV file to read.
+        info_page_url: The URL to scrape.
+
+    Raises:
+        RuntimeError: If any step of parsing the content fails.
+        requests.RequestException [or child Exceptions]: if any network issues
+            occur.
 
     Returns:
-        Set of the ids to ignore.
+        A dictionary with the desired attributes extracted from the page.
     """
-    df = pd.read_csv(ignore_file, usecols=["hpi_facility_id"])
-    return set(df["hpi_facility_id"])
+    r = requests.get(info_page_url)
+    r.raise_for_status()
+    tree = lxml.html.fromstring(r.text)
+    try:
+        name = tree.xpath("//th[text()='Premises name']/following-sibling::td")[0].text
+        address = tree.xpath("//th[text()='Address']/following-sibling::td")[0].text
+        occupancy = int(tree.xpath("//th[text()='Total beds']/following-sibling::td")[0].text)
+        service_types = tree.xpath("//th[text()='Service types']/following-sibling::td")[0].text
+    except (IndexError, ValueError, TypeError) as e:
+        raise RuntimeError("Failed to parse attributes from page HTML") from e
+    return {"name": name, "address": address, "occupancy": occupancy, "service_types": service_types}
+
+
+#################################
+## Load source files from disk ##
+#################################
 
 
 def load_hpi_excel(input_file: Path, ignore_file: Path | None = None) -> gpd.GeoDataFrame:
@@ -188,58 +254,128 @@ def load_hpi_excel(input_file: Path, ignore_file: Path | None = None) -> gpd.Geo
     sheet_name = "Facilities" if "Facilities" in wb.sheetnames else 0
     wb.close()
     # Load the file using Pandas
-    df = pd.read_excel(input_file, sheet_name=sheet_name)
+    hpi_df = pd.read_excel(input_file, sheet_name=sheet_name)
     # Filter to just the columns we're interested in
-    df = filter_df_columns(df, HPI_COLUMNS_OF_INTEREST)
+    hpi_df = filter_df_columns(hpi_df, HPI_COLUMNS_OF_INTEREST)
     # Strip leading and trailing whitespace from these columns
-    df = strip_column_values(df, ["name", "address", "type", "organisation_name"])
+    hpi_df = strip_column_values(hpi_df, ["name", "address", "type", "organisation_name"])
     # If an ignore file was supplied,
     # load the IDS from that file and filter them out.
     if ignore_file is not None:
-        ids_to_ignore = get_hpi_ids_to_ignore(ignore_file)
-        df = df[~df["hpi_facility_id"].isin(ids_to_ignore)]
+        ids_to_ignore = load_hpi_ignore_file(ignore_file)
+        hpi_df = hpi_df[~hpi_df["hpi_facility_id"].isin(ids_to_ignore)]
     # Strip a trailing comma from some address columns - this was present in
     # many rows in old data, so removing it helps remove false positives when
     # comparing that old data to new data
-    df["address"] = df["address"].str.rstrip(",")
-    df["type"] = standardise_hpi_type(df["type"])
+    hpi_df["address"] = hpi_df["address"].str.rstrip(",")
+    hpi_df["type"] = standardise_hpi_type(hpi_df["type"])
     # Convert the Pandas DataFrame to a Geopandas GeoDataFrame
-    gdf = gpd.GeoDataFrame(data=df, geometry=gpd.points_from_xy(df.x, df.y), crs=4167)
-    gdf = gdf.to_crs(2193)
-    gdf.drop(columns=["x", "y"], inplace=True)
-    return gdf
+    hpi_gdf = gpd.GeoDataFrame(data=hpi_df, geometry=gpd.points_from_xy(hpi_df.x, hpi_df.y), crs=4167)
+    hpi_gdf = hpi_gdf.to_crs(2193)
+    hpi_gdf.drop(columns=["x", "y"], inplace=True)
+    hpi_gdf = convert_intlike_cols_to_nullable_int(hpi_gdf)
+    return hpi_gdf
 
 
-def update_midwife_likelihood(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def load_facilities_hospitals(input_file: Path) -> gpd.GeoDataFrame:
     """
-    Updates the likelihood for features of type "Community Midwife".
-
-    There are a large number of these, which generally represent individual
-    midwifes. However some features of this type represent birthing centres
-    which function like a maternity ward of a hospital, for women to give birth
-    and be cared for in the following days, which we do want to capture.
-
-    To try and target these, we increase the likelihood of any features of type
-    "Community Midwife" which have either "birth" or "maternity" in their name.
+    Reads an input Facilities GeoPackage, and returns a GeoDataFrame of
+    its contents, filtered to only include Hospital features.
 
     Args:
-        gdf: An HPI GeoDataFrame.
+        input_file: The Path to the NZ Facilities GeoPackage
 
     Returns:
-        The supplied HPI GeoDataFrame with midwife likelihoods updated in place.
+        A GeoDataFrame of Hospital features.
     """
-    gdf.loc[
-        (gdf["type"] == "Community Midwife")
-        & (
-            (gdf["name"].str.contains("birth", case=False, regex=False))
-            | (gdf["name"].str.contains("maternity", case=False, regex=False))
-        ),
-        "likelihood",
-    ] = 4
-    return gdf
+    facilities_gdf = gpd.read_file(input_file)
+    facilities_gdf = facilities_gdf[facilities_gdf["use"] == "Hospital"]
+    facilities_gdf = convert_intlike_cols_to_nullable_int(facilities_gdf)
+    return facilities_gdf
 
 
-def assign_hpi_likelihood(gdf: gpd.GeoDataFrame, likelihood_file: Path):
+def load_healthcert_hospitals(input_file: Path) -> gpd.GeoDataFrame:
+    """
+    Reads an input HealthCERT GeoPackage (as created by
+    `scrape_healthcert_map_page`), and returns a GeoDataFrame of
+    its contents, filtered to only include Hospital features.
+
+    Args:
+        input_file: The Path to the NZ Facilities GeoPackage
+
+    Returns:
+        A GeoDataFrame of Hospital features.
+    """
+    healthcert_gdf = gpd.read_file(input_file)
+    healthcert_gdf = healthcert_gdf[healthcert_gdf["kind"].isin({"Public hospital", "Private hospital"})]
+    healthcert_gdf = convert_intlike_cols_to_nullable_int(healthcert_gdf)
+    return healthcert_gdf
+
+
+##########################################
+## Source file loading helper functions ##
+##########################################
+
+
+def standardise_hpi_type(col: pd.Series) -> pd.Series:
+    """
+    Standardises values in the "type" column of the HPI data by performing
+    a series of replacement operations on the column.
+
+    Args:
+        col: The "type" column from an HPI DataFrame.
+
+    Returns:
+        The supplied "type" column with values standardised.
+    """
+    ops = [
+        # Add space before and after forward slashes
+        (r"(?<=\S)\/", " /", True),
+        (r"\/(?=\S)", "/ ", True),
+        # Replace en dash with hyphenminus. This would be better to use the
+        # unicode character class \p{Dash_Punctuation}, but pandas uses the
+        # builtin Python regex engine with doesn't support this, and given there
+        # only seems to be an en dash in some older HPI Excel files, it seems
+        # better just to search for that and still use pandas than have to drop
+        # down to using the regex 3rd party library which doesn support unicode
+        # character classes.
+        ("–", "-", False),
+        # All the others seem to be in the form of "thing - suffix", apart from
+        # this one in the form "thing (suffix)"
+        (r" \(not otherwise specified\)$", " - not otherwise specified", True),
+    ]
+    for pattern, replacement, regex in ops:
+        col = col.str.replace(pattern, replacement, regex=regex)
+    return col
+
+
+def load_hpi_ignore_file(ignore_file: Path) -> set[str]:
+    """
+    Loads a CSV of HPI ids to ignore. The CSV must have a column named
+    "hpi_facility_id". Other columns can be present but are ignore by
+    this function.
+
+    Args:
+        ignore_file: Path to the CSV file to read.
+
+    Returns:
+        Set of the ids to ignore.
+    """
+    df = pd.read_csv(ignore_file, usecols=["hpi_facility_id"])
+    return set(df["hpi_facility_id"])
+
+
+def load_linking_file(linking_file: Path) -> pd.DataFrame:
+    df = pd.read_csv(linking_file)
+    return df
+
+
+#######################################
+## Modify HPI data before comparison ##
+#######################################
+
+
+def add_hpi_likelihood(gdf: gpd.GeoDataFrame, likelihood_file: Path):
     """
     Adds a column "likelihood" to the supplied GeoDataFrame, representing how
     likely it is that we would want to add a given feature to the Facilities
@@ -273,7 +409,49 @@ def assign_hpi_likelihood(gdf: gpd.GeoDataFrame, likelihood_file: Path):
     return gdf
 
 
-def compare_facilities_gdf_to_hpi_gdf(
+def update_midwife_likelihood(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Updates the likelihood for features of type "Community Midwife".
+
+    There are a large number of these, which generally represent individual
+    midwifes. However some features of this type represent birthing centres
+    which function like a maternity ward of a hospital, for women to give birth
+    and be cared for in the following days, which we do want to capture.
+
+    To try and target these, we increase the likelihood of any features of type
+    "Community Midwife" which have either "birth" or "maternity" in their name.
+
+    Args:
+        gdf: An HPI GeoDataFrame.
+
+    Returns:
+        The supplied HPI GeoDataFrame with midwife likelihoods updated in place.
+    """
+    gdf.loc[
+        (gdf["type"] == "Community Midwife")
+        & (
+            (gdf["name"].str.contains("birth", case=False, regex=False))
+            | (gdf["name"].str.contains("maternity", case=False, regex=False))
+        ),
+        "likelihood",
+    ] = 4
+    return gdf
+
+
+def add_hpi_occupancy(hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFrame, linking_file):
+    linking_df = pd.read_csv(linking_file)
+    linking_df = linking_df.merge(healthcert_gdf, how="left", left_on="healthcert_name", right_on="name")
+    linking_df = linking_df.drop(columns=[col for col in linking_df.columns if col not in {"hpi_facility_id", "occupancy"}])
+    hpi_gdf = hpi_gdf.merge(linking_df, how="left", on="hpi_facility_id")
+    return hpi_gdf
+
+
+##########################
+## Compare data sources ##
+##########################
+
+
+def compare_facilities_to_hpi(
     facilities_gdf: gpd.GeoDataFrame, hpi_gdf: gpd.GeoDataFrame
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """
@@ -334,9 +512,11 @@ def compare_facilities_gdf_to_hpi_gdf(
             # add the old and new values to the changes.
             attr_changes: dict[str, tuple[str, str]] = {}
             for facilities_col, hpi_col in FACILITIES_HPI_COMPARISON_COLUMNS.items():
-                if facilities_attrs[facilities_col] != hpi_attrs[hpi_col]:
-                    attr_changes[facilities_col] = (facilities_attrs[facilities_col], hpi_attrs[hpi_col])
-                    facilities_attrs[f"hpi_{hpi_col}"] = hpi_attrs[hpi_col]
+                facilities_val = facilities_attrs[facilities_col]
+                hpi_val = hpi_attrs[hpi_col]
+                if pd.isna(facilities_val) or pd.isna(hpi_val) or facilities_val != hpi_val:
+                    attr_changes[facilities_col] = (facilities_val, hpi_val)
+                    facilities_attrs[f"hpi_{hpi_col}"] = hpi_val
             # If there were any changes to attributes in the columns we compared,
             # update the change action and description.
             if attr_changes:
@@ -358,114 +538,3 @@ def compare_facilities_gdf_to_hpi_gdf(
     hpi_new_gdf = gpd.GeoDataFrame(dict_to_df(new, "hpi_facility_id"), geometry="geometry", crs=2193)
     hpi_matched_gdf = gpd.GeoDataFrame(dict_to_df(matched, "hpi_facility_id"), geometry="geometry", crs=2193)
     return updated_facilities_gdf, hpi_new_gdf, hpi_matched_gdf
-
-
-def read_hospital_facilities(input_file: Path) -> gpd.GeoDataFrame:
-    """
-    Reads an input Facilities GeoPackage, and returns a GeoDataFrame of
-    its contents, filtered to only include Hospital features.
-
-    Args:
-        input_file: The Path to the NZ Facilities GeoPackage
-
-    Returns:
-        A GeoDataFrame of Hospital features.
-    """
-    facilities_gdf = gpd.read_file(input_file)
-    facilities_gdf = facilities_gdf[facilities_gdf["use"] == "Hospital"]
-    return facilities_gdf
-
-
-def scrape_healthcert_info_page(info_page_url: str) -> dict[str, str | int | None]:
-    """
-    Scrapes an info page for a single feature, linked from the popup tooltip on
-    the map on a HealthCERT map page.
-
-    Args:
-        info_page_url: The URL to scrape.
-
-    Raises:
-        RuntimeError: If any step of parsing the content fails.
-        requests.RequestException [or child Exceptions]: if any network issues
-            occur.
-
-    Returns:
-        A dictionary with the desired attributes extracted from the page.
-    """
-    r = requests.get(info_page_url)
-    r.raise_for_status()
-    tree = lxml.html.fromstring(r.text)
-    try:
-        name = tree.xpath("//th[text()='Premises name']/following-sibling::td")[0].text
-        address = tree.xpath("//th[text()='Address']/following-sibling::td")[0].text
-        occupancy = int(tree.xpath("//th[text()='Total beds']/following-sibling::td")[0].text)
-        service_types = tree.xpath("//th[text()='Service types']/following-sibling::td")[0].text
-    except (IndexError, ValueError, TypeError) as e:
-        raise RuntimeError("Failed to parse attributes from page HTML") from e
-    return {"name": name, "address": address, "occupancy": occupancy, "service_types": service_types}
-
-
-def scrape_healthcert_map_page(
-    kind: Literal["Public hospital", "Private hospital", "Rest home"], show_progressbar: bool
-) -> gpd.GeoDataFrame:
-    """
-    Scrapes features from a HealthCERT map page by parsing the HTML of the map
-    page, then the HTML of each linked info page, collating everything to a
-    GeoPandas GeoDataFrame.
-
-    This function, and `scrape_healthcert_info_page` which this calls, is
-    tightly coupled to the markup of the pages to be parsed. Any changes to the
-    design of the pages will very likely cause these functions to stop working.
-
-    Args:
-        kind: Which map to scrape.
-
-    Raises:
-        RuntimeError: If any step of parsing the content fails.
-        requests.RequestException [or child Exceptions]: if any network issues
-            occur.
-
-    Returns:
-        A GeoDataFrame containing all features from the map.
-    """
-    map_page_url = HEALTHCERT_MAP_URLS[kind]
-    logger.info(f"Scraping {kind.lower()} features from {map_page_url}")
-    r = requests.get(map_page_url)
-    r.raise_for_status()
-    tree = lxml.html.fromstring(r.text)
-    try:
-        script_el = tree.xpath("//script[contains(text(), '\"leaflet\":')]")[0]
-    except IndexError as e:
-        raise RuntimeError(f"Cannot find javascript variable containing map definition in {map_page_url}") from e
-    script_data = chompjs.parse_js_object(script_el.text)
-    try:
-        raw_features = script_data["leaflet"][0]["features"]
-    except (IndexError, KeyError) as e:
-        raise RuntimeError("Cannot find list of features inside map javascript data") from e
-    features = []
-    if show_progressbar is True:
-        pbar = tqdm(total=len(raw_features), unit="feat")
-    for raw_feature in raw_features:
-        try:
-            popup = raw_feature["popup"]
-            lat = raw_feature["lat"]
-            lon = raw_feature["lon"]
-        except KeyError as e:
-            raise RuntimeError('Leflet map feature does not have required attributes ("popup", "lat", "lon")') from e
-        match = re.match(r'.+<br /><a href="(.+?)"', popup)
-        if not match:
-            raise RuntimeError(f'Failed to parse URL from "popup" attribute: {popup}')
-        url_fragment = match.group(1)
-        info_page_url = urljoin(map_page_url, url_fragment)
-        feature = scrape_healthcert_info_page(info_page_url)
-        feature.update(kind=kind, lat=lat, lon=lon)
-        features.append(feature)
-        if show_progressbar is True:
-            pbar.update()
-    if show_progressbar is True:
-        pbar.close()
-    df = pd.DataFrame(features)
-    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(x=df["lon"], y=df["lat"], crs=4326))
-    gdf.drop(columns=["lon", "lat"], inplace=True)
-    gdf.to_crs(2193)
-    return gdf

@@ -1,9 +1,10 @@
 import re
 import unicodedata
-from typing import Any
+from typing import Any, overload
 
 import geopandas as gpd
 import pandas as pd
+from pandas.api.types import is_bool_dtype, is_numeric_dtype, is_object_dtype
 
 
 def standardise_column_name(name: str):
@@ -147,28 +148,83 @@ def dict_to_df(d: dict[str, dict[str, Any]], key_column: str) -> pd.DataFrame:
     Returns:
         A DataFrame derived from the supplied Dictionary.
     """
-    return pd.DataFrame([{key_column: k, **v} for k, v in d.items()])
+    df = pd.DataFrame([{key_column: k, **v} for k, v in d.items()])
+    df = convert_intlike_cols_to_nullable_int(df)
+    return df
 
 
-def gdf_concat(gdfs: list[gpd.GeoDataFrame]) -> gpd.GeoDataFrame:
+@overload
+def convert_intlike_cols_to_nullable_int(df: pd.DataFrame) -> pd.DataFrame: ...
+
+
+@overload
+def convert_intlike_cols_to_nullable_int(df: gpd.GeoDataFrame) -> gpd.GeoDataFrame: ...
+
+
+def convert_intlike_cols_to_nullable_int(df):
     """
-    Concatenates a list of GeoPandas GeoDataFrames. If the list contains a
-    single item, it will be returned, else each GeoDataFrame in the list
-    will be concatenated together.
+    Converts any "int-like" columns in the supplied DataFrame to a nullable
+    integer data type.
+
+    A historical limitation of Pandas is not allowing null values in integer
+    columns. There is now a method of doing this, but it is still considered
+    "experimental" per the documentation (though seems to have been stable for
+    a long time now) https://pandas.pydata.org/docs/user_guide/integer_na.html.
+
+    This function converts any columns which are "int-like" to a nullable
+    integer data type. See the function `is_col_intlike` for the definition
+    of what we consider "int-like" to be.
+
+    The DataFrame can be either a Pandas DataFrame, or a GeoPandas GeoDataFrame,
+    and the returned value will be of the same type.
 
     Args:
-        gdfs: A list of GeoDataFrames to concatenate.
-
-    Raises:
-        ValueError: If an empty list was passed.
+        df: A DataFrame
 
     Returns:
-        A single GeoDataFrame.
+        The DataFrame with any "int-like" columns converted to nullable integer
+        data type.
     """
-    match len(gdfs):
-        case 0:
-            raise ValueError("Received empty list")
-        case 1:
-            return gdfs[0]
-        case _:
-            return gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
+    for col in df.columns:
+        if is_col_intlike(df[col]):
+            df[col] = df[col].astype("Int64")
+    return df
+
+
+def is_col_intlike(s: pd.Series) -> bool:
+    """
+    Returns whether the passed Series is "int-like".
+
+    This means the series meets the following properties:
+    - is of a numeric dtype (but not a boolean dtype, which is considered
+      numeric) or an object dtype.
+    - all values are either null, or are numbers which when converted to a
+      float, are valid integers. I.e. are themselves an int, or are a float
+      with no decimal portion.
+
+    Args:
+        s: The Series to check
+
+    Returns:
+        Boolean whether or not the series is "int-like"
+    """
+    # Reject boolean dtype
+    if is_bool_dtype(s):
+        return False
+    # Reject dtypes which is neither numeric nor object
+    if not is_numeric_dtype(s) or not is_object_dtype(s):
+        return False
+    # Iterate through each value
+    for val in s.unique():
+        # Skip null values
+        if pd.isna(val):
+            continue
+        # Reject if any value is non-numeric
+        if not is_numeric_dtype(val):
+            return False
+        # Reject if any value when converted to a float is not an integer
+        # (i.e. has a decimal portion)
+        if not float(val).is_integer():
+            return False
+    # If we haven't rejected anything yet, return True
+    return True

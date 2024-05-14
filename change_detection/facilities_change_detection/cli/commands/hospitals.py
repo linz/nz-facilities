@@ -1,23 +1,21 @@
 import datetime as dt
 import typing
-from enum import Enum
 from pathlib import Path
 
-import click
 import typer
-from tqdm.contrib.logging import logging_redirect_tqdm
 
 from facilities_change_detection.core.hospitals import (
-    assign_hpi_likelihood,
-    compare_facilities_gdf_to_hpi_gdf,
+    add_hpi_likelihood,
+    add_hpi_occupancy,
+    compare_facilities_to_hpi,
+    download_healthcert_gpkg,
     download_hpi_excel,
+    load_facilities_hospitals,
+    load_healthcert_hospitals,
     load_hpi_excel,
-    read_hospital_facilities,
-    scrape_healthcert_map_page,
 )
 from facilities_change_detection.core.io import add_styles_to_gpkg, get_layer_styles
 from facilities_change_detection.core.log import get_logger
-from facilities_change_detection.core.util import gdf_concat
 
 logger = get_logger()
 
@@ -50,29 +48,6 @@ def download_hpi_data(
         logger.fatal(e)
 
 
-healthcert_kinds = {"public": "Public hospital", "private": "Private hospital", "resthome": "Rest home", "all": "all"}
-
-
-def validate_healthcert_kinds_args(kind_codes: list[str]) -> tuple[list[str], str]:
-    # Convert the list of kind_codes to a set to remove any duplicates
-    kind_codes = set(kind_codes)
-    # Remove "all" from the list of allowed kinds
-    healthcert_kinds.pop("all")
-    # If "all" was one of the kind_codes we received, or we received every
-    # possible option, return a list of all the options with a name of "all"
-    if "all" in kind_codes or kind_codes == healthcert_kinds.keys():
-        kinds = list(healthcert_kinds.values())
-        kinds_name = "all"
-    # Else, return a list of the kinds with a name of their codes,
-    # separated by commas
-    else:
-        # Sort the set first to ensure the order is always the same
-        kind_codes = sorted(kind_codes)
-        kinds = [healthcert_kinds[kind_code] for kind_code in kind_codes]
-        kinds_name = ",".join(kind_codes)
-    return kinds, kinds_name
-
-
 @app.command()
 def download_healthcert_data(
     output_folder: typing.Annotated[
@@ -86,15 +61,6 @@ def download_healthcert_data(
             help="Folder where you want to download the data to.",
         ),
     ] = Path.cwd() / "source_data",
-    kind_codes: typing.Annotated[
-        list[str],
-        typer.Option(
-            "-k",
-            "--kind",
-            click_type=click.Choice(choices=healthcert_kinds.keys()),
-            help="Which HealthCERT webmap to scrape more chars.",
-        ),
-    ] = ["all"],
     overwrite: typing.Annotated[bool, typer.Option(help="Whether to overwrite an existing file with the same name.")] = False,
     create_output_folder_if_not_exists: typing.Annotated[
         bool, typer.Option("--create", help="Whether to create the output folder if it doesn't exist.")
@@ -104,112 +70,96 @@ def download_healthcert_data(
     if create_output_folder_if_not_exists is True:
         output_folder.mkdir(parents=True, exist_ok=True)
     try:
-        kinds, kinds_name = validate_healthcert_kinds_args(kind_codes)
-        if progress is True:
-            with logging_redirect_tqdm(loggers=[logger]):
-                gdfs = [scrape_healthcert_map_page(kind, progress) for kind in kinds]
-        else:
-            gdfs = [scrape_healthcert_map_page(kind, progress) for kind in kinds]
-        gdf = gdf_concat(gdfs)
-        output_file = output_folder / f"healthcert__{kinds_name}__{dt.date.today()}.gpkg"
+        gdf = download_healthcert_gpkg(progress)
+        output_file = output_folder / f"healthcert__{dt.date.today()}.gpkg"
         gdf.to_file(output_file)
     except Exception as e:
         logger.fatal(e)
 
 
 @app.command()
-def load_hpi_file(
-    input_file: typing.Annotated[
-        Path,
-        typer.Option(
-            "-i",
-            "--input-file",
-            dir_okay=False,
-            file_okay=True,
-            resolve_path=True,
-            exists=True,
-            readable=True,
-            help="Path to input HPI Excel file.",
-        ),
-    ],
-    output_file: typing.Annotated[
-        Path,
-        typer.Option(
-            "-o",
-            "--output-file",
-            dir_okay=False,
-            file_okay=True,
-            resolve_path=True,
-            writable=True,
-            help="Path to output GeoPackage.",
-        ),
-    ],
-    likelihood_file: typing.Annotated[
-        Path,
-        typer.Option(
-            "-l",
-            "--likelihood-file",
-            dir_okay=False,
-            file_okay=True,
-            resolve_path=True,
-            exists=True,
-            readable=True,
-            help="Path to likelihood CSV file.",
-        ),
-    ],
-):
-    try:
-        logger.info("Loading Excel file")
-        gdf = load_hpi_excel(input_file)
-        logger.info("Assigning likelihood")
-        gdf = assign_hpi_likelihood(gdf, likelihood_file)
-        logger.info("Saving GeoPackage")
-        gdf.to_file(output_file, laywer="hpi")
-        logger.info("Adding layer styles to GeoPackage")
-        add_styles_to_gpkg(output_file, get_layer_styles({"hpi": "hpi_new.qml"}))
-    except Exception as e:
-        logger.fatal(e)
-
-
-@app.command()
-def compare_facilities_to_hpi(
+def compare(
     facilities_file: typing.Annotated[
         Path,
         typer.Option(
-            "-if",
-            "--input-file-facilities",
+            "-i_fac",
+            "--input-facilities",
             dir_okay=False,
             file_okay=True,
             resolve_path=True,
             exists=True,
             readable=True,
-            help="Path to Facilities GeoPackage file.",
+            help="Path to Facilities file. Must be a GeoPackage export of the LINZ NZ Facilities dataset.",
+            show_default=False,
         ),
     ],
     hpi_file: typing.Annotated[
         Path,
         typer.Option(
-            "-ih",
-            "--input-file-hpi",
+            "-i_hpi",
+            "--input-hpi",
             dir_okay=False,
             file_okay=True,
             resolve_path=True,
             exists=True,
             readable=True,
-            help="Path to HPI Excel file.",
+            help="Path to HPI file. Must be an Excel file downloaded from the Te Whatu Ora website [see command 'download-hpi-data'].",
+            show_default=False,
+        ),
+    ],
+    healthcert_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-i_hc",
+            "--input-healthcert",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            exists=True,
+            readable=True,
+            help="Path to HealthCERT file. Must be a GeoPackage file of data scraped from the Ministry of Health website [see command 'download-healthcert-data'].",
+            show_default=False,
         ),
     ],
     likelihood_file: typing.Annotated[
         Path,
         typer.Option(
-            "-il",
-            "--input-file-likelihood",
+            "-i_lik",
+            "--input-likelihood",
             dir_okay=False,
             file_okay=True,
             resolve_path=True,
             exists=True,
             readable=True,
-            help="Path to likelihood CSV file.",
+            help="Path to likelihood file. Must be a CSV with columns 'type,likelihood'.",
+            show_default=False,
+        ),
+    ],
+    linking_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-i_lin",
+            "--input-linking",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            exists=True,
+            readable=True,
+            help="Path to linking file. Must be a CSV with columns 'hpi_facility_id,healthcert_name'",
+            show_default=False,
+        ),
+    ],
+    hpi_ignore_file: typing.Annotated[
+        Path | None,
+        typer.Option(
+            "-i_hig",
+            "--input-hpi-ignore",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            exists=True,
+            readable=True,
+            help="Path to HPI ignore list file. Must be a CSV with column 'hpi_facility_id'. Other columns may be present but will be ignored.",
         ),
     ],
     output_file: typing.Annotated[
@@ -222,31 +172,47 @@ def compare_facilities_to_hpi(
             resolve_path=True,
             writable=True,
             help="Path to output GeoPackage.",
+            show_default=False,
         ),
     ],
-    ignore_file: typing.Annotated[
-        Path | None,
-        typer.Option(
-            "-ii",
-            "--input-file-ignore",
-            dir_okay=False,
-            file_okay=True,
-            resolve_path=True,
-            exists=True,
-            readable=True,
-            help="Path to ignore list CSV file.",
-        ),
-    ] = None,
 ):
+    """
+    Compares hospitals in the NZ Facilities dataset to new hospitals from
+    Te Whatu Ora HPI data, augmented by occupancy from Ministry of Health
+    HealthCERT data.
+
+    This command has six required inputs: the three source data files
+    (NZ Facilities Geopackage, HPI Excel, and HealthCERT GeoPackage), and three
+    additional helper files (a likelihood CSV, a linking CSV, and an HPI ignore
+    CSV).
+
+    Each of the three source files is read in, with NZ Facilities filtered to
+    only include Hospitals, and the HPI filtered to exclude any feature present
+    in the ignore list. Estimated occupancy is added to the HPI data from the
+    HealthCERT data (where present), using the linking CSV to match HealthCERT
+    names to HPi Facility IDs. The merged data is then compared against the
+    NZ Facilities data.
+
+    The output is a single GeoPackage file with three layers:
+    'hospital_facilities' which is the input Facilities layer with additional
+    columns describing the differences with the HPI data, hpi_matched, which is
+    the features from the HPI data which matched with a feature in the
+    Facilities data, and hpi_new, which is all features in the HPI data not
+    present in the Facilities data nor in the ignore list.
+    """
     try:
-        logger.info("Loading HPI Excel file")
-        hpi_gdf = load_hpi_excel(hpi_file, ignore_file)
-        logger.info("Assigning likelihood")
-        hpi_gdf = assign_hpi_likelihood(hpi_gdf, likelihood_file)
         logger.info("Loading Facilities GeoPackage")
-        facilities_gdf = read_hospital_facilities(facilities_file)
+        facilities_gdf = load_facilities_hospitals(facilities_file)
+        logger.info("Loading HPI Excel file")
+        hpi_gdf = load_hpi_excel(hpi_file, hpi_ignore_file)
+        logger.info("Loading HealthCERT GeoPackage")
+        healthcert_gdf = load_healthcert_hospitals(healthcert_file)
+        logger.info("Assigning likelihood to HPI features")
+        hpi_gdf = add_hpi_likelihood(hpi_gdf, likelihood_file)
+        logger.info("Augmenting HPI with HealthCERT occupancy")
+        hpi_gdf = add_hpi_occupancy(hpi_gdf, healthcert_gdf, linking_file)
         logger.info("Comparing Facilities to HPI")
-        facilities_gdf, hpi_new_gdf, hpi_matched_gdf = compare_facilities_gdf_to_hpi_gdf(facilities_gdf, hpi_gdf)
+        facilities_gdf, hpi_new_gdf, hpi_matched_gdf = compare_facilities_to_hpi(facilities_gdf, hpi_gdf)
         logger.info("Saving layers to output GeoPackage")
         facilities_gdf.to_file(output_file, layer="hospital_facilities")
         hpi_new_gdf.to_file(output_file, layer="hpi_new")
