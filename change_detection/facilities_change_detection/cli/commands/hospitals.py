@@ -2,6 +2,7 @@ import datetime as dt
 import typing
 from pathlib import Path
 
+import pandas as pd
 import typer
 
 from facilities_change_detection.core.hospitals import (
@@ -75,6 +76,97 @@ def download_healthcert_data(
         gdf.to_file(output_file)
     except Exception as e:
         logger.fatal(e)
+
+
+@app.command()
+def update_linking(
+    hpi_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-i_hpi",
+            "--input-hpi",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            exists=True,
+            readable=True,
+            help="Path to HPI file. Must be an Excel file downloaded from the Te Whatu Ora website [see command 'download-hpi-data'].",
+            show_default=False,
+        ),
+    ],
+    healthcert_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-i_hc",
+            "--input-healthcert",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            exists=True,
+            readable=True,
+            help="Path to HealthCERT file. Must be a GeoPackage file of data scraped from the Ministry of Health website [see command 'download-healthcert-data'].",
+            show_default=False,
+        ),
+    ],
+    linking_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-i_lin",
+            "--input-linking",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            exists=True,
+            readable=True,
+            help="Path to linking file. Must be a CSV with columns 'hpi_facility_id,healthcert_name'",
+            show_default=False,
+        ),
+    ],
+    output_linking_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-o_lin",
+            "--output-linking",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            writable=True,
+            help="Path to output linking CSV.",
+            show_default=False,
+        ),
+    ],
+    output_missing_file: typing.Annotated[
+        Path,
+        typer.Option(
+            "-o_mis",
+            "--output-missing",
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            writable=True,
+            help="Path to output missing GeoPackage.",
+            show_default=False,
+        ),
+    ],
+):
+    logger.info("Loading HPI Excel file")
+    hpi_gdf = load_hpi_excel(hpi_file)
+    logger.info("Loading HealthCERT GeoPackage")
+    healthcert_gdf = load_healthcert_hospitals(healthcert_file)
+    logger.info("Finding new HealthCERT features in HPI data")
+    linking_df = pd.read_csv(linking_file)
+    updated_linking_df, missing_gdf = update_linking_table(hpi_gdf, healthcert_gdf, linking_df)
+    if matched_count := len(updated_linking_df) - len(linking_df):
+        logger.info(f"Matched {matched_count} HealthCERT features not in the linking " "table by name to a HPi feature.")
+        logger.info(f"Saving updated linking table to {output_linking_file}")
+        updated_linking_df.to_csv(output_linking_file, index=False)
+    if missing_count := len(missing_gdf):
+        logger.info(
+            f"{missing_count} HealthCERT features not in the linking table did "
+            "not match any names in the HPI data - will require manual checking"
+        )
+        logger.info(f"Saving missing HealthCERT features to {output_missing_file}")
+        missing_gdf.to_file(output_missing_file)
 
 
 @app.command()

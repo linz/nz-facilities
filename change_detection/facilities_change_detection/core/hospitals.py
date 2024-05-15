@@ -538,3 +538,33 @@ def compare_facilities_to_hpi(
     hpi_new_gdf = gpd.GeoDataFrame(dict_to_df(new, "hpi_facility_id"), geometry="geometry", crs=2193)
     hpi_matched_gdf = gpd.GeoDataFrame(dict_to_df(matched, "hpi_facility_id"), geometry="geometry", crs=2193)
     return updated_facilities_gdf, hpi_new_gdf, hpi_matched_gdf
+
+
+def update_linking_table(
+    hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFrame, linking_df: pd.DataFrame
+) -> tuple[pd.DataFrame, gpd.GeoDataFrame]:
+    """
+    Updates the table which links HealthCERT names to HPI Facility IDs.
+
+    Any names in the HealthCERT data not present in the linking table which
+    match exactly with a name in the HPI data will have their matching name
+    and HPI Facility ID added to the linking table.
+
+    Any HealthCERT features whose name does not match with any names in the HPI
+    data will be return as the still_missing GeoDataFrame.
+
+    Args:
+        hpi_gdf: A GeoDataFrame of HPI data.
+        healthcert_gdf: A GeoDataFrame of HealthCERT data.
+        linking_df: A DataFrame of the HealthCERT <> HPI linking table.
+
+    Returns:
+        The linking table with any new matches added, and a GeoDataFrame of any
+        features which were unable to be matched.
+    """
+    missing = healthcert_gdf[~healthcert_gdf["name"].isin(linking_df["healthcert_name"])]
+    found = hpi_gdf[hpi_gdf["name"].isin(missing["name"])][["hpi_facility_id", "name"]]
+    found.columns = ["hpi_facility_id", "healthcert_name"]
+    linking_df = pd.concat([linking_df, found])
+    still_missing = missing[~missing["name"].isin(found["healthcert_name"])]
+    return linking_df, still_missing
