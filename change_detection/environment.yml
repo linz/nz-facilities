@@ -10,8 +10,8 @@ dependencies:
   - requests=2
   - psycopg2=2
   - tqdm=4
-  - typer=0.9
-  - openpyxl=3
+  - typer=0
+  - python-calamine=0
   - pandas=2
   - geopandas=0
   - lxml=5

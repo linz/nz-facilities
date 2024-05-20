@@ -9,6 +9,7 @@ import lxml.html
 import openpyxl
 import pandas as pd
 import requests
+from python_calamine import CalamineWorkbook
 from tqdm import tqdm
 
 from facilities_change_detection.core.facilities import DISTANCE_THRESHOLD, ChangeAction
@@ -250,11 +251,10 @@ def load_hpi_excel(input_file: Path, ignore_file: Path | None = None) -> gpd.Geo
     # newer versions have the data in a second sheet named "Facilities".
     # To detect this we first open the file to see if it has a sheet named
     # "Facilities", and if so pass that to `pd.read_excel()`.
-    wb = openpyxl.load_workbook(input_file, read_only=True)
-    sheet_name = "Facilities" if "Facilities" in wb.sheetnames else 0
-    wb.close()
+    wb = CalamineWorkbook.from_path(input_file)
+    sheet_name = "Facilities" if "Facilities" in wb.sheet_names else 0
     # Load the file using Pandas
-    hpi_df = pd.read_excel(input_file, sheet_name=sheet_name)
+    hpi_df = pd.read_excel(input_file, sheet_name=sheet_name, engine="calamine")
     # Filter to just the columns we're interested in
     hpi_df = filter_df_columns(hpi_df, HPI_COLUMNS_OF_INTEREST)
     # Strip leading and trailing whitespace from these columns
