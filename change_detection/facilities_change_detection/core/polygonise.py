@@ -4,6 +4,7 @@ import geopandas as gpd
 import pandas as pd
 import shapely
 from pandarallel import pandarallel
+from shapely.geometry import MultiPolygon
 
 from facilities_change_detection.core.log import get_logger
 
@@ -15,7 +16,7 @@ TITLE_MERGE_MAX_ROUNDS = 20
 logger = get_logger()
 
 
-def find_matching_parcels(row: pd.Series) -> shapely.geometry.MultiPolygon | None:
+def find_matching_parcels(row: pd.Series) -> MultiPolygon | None:
     """
     Creates a polygon for a point feature by finding which parcels from the
     "Titles with Owners" dataset the point intersects with, then adding nearby

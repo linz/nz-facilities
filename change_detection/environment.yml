@@ -1,4 +1,4 @@
-name: facilities_change_detection
+name: facilities-change-detection
 channels:
   - conda-forge
   - defaults

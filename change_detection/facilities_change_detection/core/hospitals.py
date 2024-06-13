@@ -145,6 +145,24 @@ def download_healthcert_gpkg(show_progressbar: bool) -> gpd.GeoDataFrame:
 
 
 def scrape_healthcert_map_page(kind, show_progressbar: bool) -> gpd.GeoDataFrame:
+    """
+    Scrapes a webmap on the Ministry of Health website. Features are extracted
+    from points on the map, with attributes for each being fetched via separate
+    requests to info pages by calling `scrape_healthcert_info_page`.
+
+    Args:
+        kind: The kind to scrape, to be used as the key to global dictionary
+            HEALTHCERT_MAP_URLS containing the URLs.
+        show_progressbar: Whether to show a progressbar.
+
+    Raises:
+        RuntimeError: If any step of parsing the content fails.
+        requests.RequestException [or child Exceptions]: if any network issues
+            occur.
+
+    Returns:
+        A dictionary with all features on the map extracted from the page.
+    """
     map_page_url = HEALTHCERT_MAP_URLS[kind]
     logger.info(f"Scraping {kind.lower()} features from {map_page_url}")
     r = requests.get(map_page_url)
