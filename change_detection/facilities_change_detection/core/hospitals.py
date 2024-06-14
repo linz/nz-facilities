@@ -6,7 +6,6 @@ from urllib.parse import urljoin
 import chompjs
 import geopandas as gpd
 import lxml.html
-import openpyxl
 import pandas as pd
 import requests
 from python_calamine import CalamineWorkbook

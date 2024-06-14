@@ -4,16 +4,18 @@ channels:
   - defaults
 dependencies:
   - python=3
+  - pip=24
   - fiona=1
   - shapely=2
   - pyproj=3
   - requests=2
   - psycopg2=2
   - tqdm=4
-  - typer=0
-  - python-calamine=0
+  - typer>=0,<2
+  - python-calamine>=0,<2
   - pandas=2
-  - geopandas=0
+  - geopandas>=0,<2
   - lxml=5
+  - pandarallel=1
   - pip:
-    - chompjs=1
+    - chompjs>=1,<2
