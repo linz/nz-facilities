@@ -457,10 +457,55 @@ def update_midwife_likelihood(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf
 
 
-def add_hpi_occupancy(hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFrame, linking_file):
+def add_hpi_occupancy(hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFrame, linking_file: Path) -> gpd.GeoDataFrame:
+    """
+    Adds occupany from HealthCERT data to HPI data using a linking CSV which
+    maps "hpi_facility_id" to "healthcert_name".
+
+    The values in each column must be unique, i.e. there can be no duplicate
+    IDs or duplicate names, as these are used as a primary key to join the
+    tables together.
+
+    Args:
+        hpi_gdf: A GeoDataFrame of HPI data, as returned by `load_hpi_excel`
+        healthcert_gdf: A GeoDataFrame of HealthCERT data, as returned by
+            `load_healthcert_hospitals`
+        linking_file: Path to a CSV containing two columns,
+            "hpi_facility_id" and "healthcert_name"
+
+    Returns:
+        The supplied hpi_gdf with an added "occupancy" column.
+    """
     linking_df = pd.read_csv(linking_file)
+    # Warn about and then drop any duplicate values for hpi_facility_id
+    hpi_facility_id_duplicates = linking_df[linking_df["hpi_facility_id"].duplicated(keep=False)]
+    if not hpi_facility_id_duplicates.empty:
+        logger.warning(
+            f"Duplicated 'hpi_facility_id' values found in HealthCERT <> HPI linking CSV, {linking_file}:\n"
+            f"{hpi_facility_id_duplicates.to_markdown(index=False)}"
+        )
+        logger.warning(
+            "Keeping first instance of each value of 'hpi_facility_id' and removing subsequent duplicate values. "
+            "If this is not the desired outcome, please edit the linking CSV to remove duplicates before rerunning."
+        )
+        linking_df.drop_duplicates("hpi_facility_id", inplace=True)
+    # Warn about and then drop any duplicate values for healthcert_name
+    healthcert_name_duplicates = linking_df[linking_df["healthcert_name"].duplicated(keep=False)]
+    if not healthcert_name_duplicates.empty:
+        logger.warning(
+            f"Duplicated 'healthcert_name' values found in HealthCERT <> HPI linking CSV, {linking_file}:\n"
+            f"{healthcert_name_duplicates.to_markdown(index=False)}"
+        )
+        logger.warning(
+            "Keeping first instance of each value of 'healthcert_name' and removing subsequent duplicate values."
+            "If this is not the desired outcome, please edit the linking CSV to remove duplicates before rerunning."
+        )
+        linking_df.drop_duplicates("healthcert_name", inplace=True)
+    # Merge linking tablee to healthcert data
     linking_df = linking_df.merge(healthcert_gdf, how="left", left_on="healthcert_name", right_on="name")
+    # Drop everything but the hpi_facility_id and occupancy
     linking_df = linking_df.drop(columns=[col for col in linking_df.columns if col not in {"hpi_facility_id", "occupancy"}])
+    # Merge occupancy to hpi data
     hpi_gdf = hpi_gdf.merge(linking_df, how="left", on="hpi_facility_id")
     return hpi_gdf
 

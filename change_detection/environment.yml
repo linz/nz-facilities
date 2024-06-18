@@ -17,5 +17,6 @@ dependencies:
   - geopandas>=0,<2
   - lxml=5
   - pandarallel=1
+  - tabulate>=0,<2
   - pip:
     - chompjs>=1,<2
