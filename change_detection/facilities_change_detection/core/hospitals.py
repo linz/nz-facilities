@@ -492,6 +492,16 @@ def compare_facilities_to_hpi(
     # Initialise these two columns with None
     facilities_gdf["change_action"] = None
     facilities_gdf["change_description"] = None
+    # Filter out any rows which have a missing value for source_facility_id
+    facilities_missing_id_gdf = facilities_gdf[facilities_gdf["source_facility_id"].isna()].copy()
+    facilities_gdf = facilities_gdf[~facilities_gdf["source_facility_id"].isna()]
+    if not facilities_missing_id_gdf.empty:
+        logger.warning(
+            f"NZ Facilities data contains {len(facilities_missing_id_gdf)} features which are missing a value for "
+            "'source_facility_id' which is required to compare them to the HPI data. Marking them as unable to compare."
+        )
+        facilities_missing_id_gdf["change_action"] = ChangeAction.CANNOT_COMPARE
+        facilities_missing_id_gdf["change_description"] = 'Missing value for "source_facility_id", cannot compare'
     # Convert the two GeoDataFrames to dictionarys
     facilities_dict = df_to_dict(facilities_gdf, "source_facility_id")
     hpi_dict = df_to_dict(hpi_gdf, "hpi_facility_id")
@@ -554,6 +564,11 @@ def compare_facilities_to_hpi(
     updated_facilities_gdf = gpd.GeoDataFrame(dict_to_df(facilities_dict, "source_facility_id"), geometry="geometry", crs=2193)
     hpi_new_gdf = gpd.GeoDataFrame(dict_to_df(new, "hpi_facility_id"), geometry="geometry", crs=2193)
     hpi_matched_gdf = gpd.GeoDataFrame(dict_to_df(matched, "hpi_facility_id"), geometry="geometry", crs=2193)
+    # Add back in facilities rows with missing value for source_facility_id
+    if not facilities_missing_id_gdf.empty:
+        updated_facilities_gdf = gpd.GeoDataFrame(
+            pd.concat([updated_facilities_gdf, facilities_missing_id_gdf], ignore_index=True)
+        )
     return updated_facilities_gdf, hpi_new_gdf, hpi_matched_gdf
 
 

@@ -18,6 +18,7 @@ class ChangeAction(StrEnum):
     UPDATE_GEOM = "update_geom"
     UPDATE_ATTR = "update_attr"
     UPDATE_GEOM_ATTR = "update_geom_attr"
+    CANNOT_COMPARE = "cannot_compare"
 
 
 class DBConnectionDetails(typing.TypedDict):
