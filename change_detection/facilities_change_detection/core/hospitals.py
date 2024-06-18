@@ -306,6 +306,7 @@ def load_facilities_hospitals(input_file: Path) -> gpd.GeoDataFrame:
         A GeoDataFrame of Hospital features.
     """
     facilities_gdf = gpd.read_file(input_file)
+    facilities_gdf = facilities_gdf.to_crs(2193)
     facilities_gdf = facilities_gdf[facilities_gdf["use"] == "Hospital"]
     facilities_gdf = convert_intlike_cols_to_nullable_int(facilities_gdf)
     return facilities_gdf
@@ -324,6 +325,7 @@ def load_healthcert_hospitals(input_file: Path) -> gpd.GeoDataFrame:
         A GeoDataFrame of Hospital features.
     """
     healthcert_gdf = gpd.read_file(input_file)
+    healthcert_gdf = healthcert_gdf.to_crs(2193)
     healthcert_gdf = healthcert_gdf[healthcert_gdf["kind"].isin({"Public hospital", "Private hospital"})]
     healthcert_gdf = convert_intlike_cols_to_nullable_int(healthcert_gdf)
     return healthcert_gdf
