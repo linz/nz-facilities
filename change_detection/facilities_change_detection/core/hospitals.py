@@ -588,7 +588,10 @@ def compare_facilities_to_hpi(
             for facilities_col, hpi_col in FACILITIES_HPI_COMPARISON_COLUMNS.items():
                 facilities_val = facilities_attrs[facilities_col]
                 hpi_val = hpi_attrs[hpi_col]
-                if pd.isna(facilities_val) or pd.isna(hpi_val) or facilities_val != hpi_val:
+                # Skip where both values are NaN, as NaN does not equal itself
+                if pd.isna(facilities_val) and pd.isna(hpi_val):
+                    continue
+                if facilities_val != hpi_val:
                     attr_changes[facilities_col] = (facilities_val, hpi_val)
                     facilities_attrs[f"hpi_{hpi_col}"] = hpi_val
             # If there were any changes to attributes in the columns we compared,
