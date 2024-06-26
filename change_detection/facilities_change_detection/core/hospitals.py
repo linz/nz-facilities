@@ -516,7 +516,7 @@ def add_hpi_occupancy(hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFram
 
 
 def compare_facilities_to_hpi(
-    facilities_gdf: gpd.GeoDataFrame, hpi_gdf: gpd.GeoDataFrame
+    facilities_gdf: gpd.GeoDataFrame, hpi_gdf: gpd.GeoDataFrame, should_ignore_occupancy: bool = False
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """
     Compares GeoDataFrames of hospitals from NZ Facilities data with HPI data.
@@ -525,6 +525,8 @@ def compare_facilities_to_hpi(
         facilities_gdf: GeoDataFrame of Hospitals in Facilities data, from
             `read_hospital_facilities`.
         hpi_gdf: GeoDataFrame of HPI data, from `load_hpi_excel`.
+        should_ignore_occupancy: Whether to ignore occupancy when performing
+            comparison.
 
     Returns:
         Three GeoDataFrames:
@@ -536,6 +538,11 @@ def compare_facilities_to_hpi(
         3. `hpi_matched_gdf`: features from the HPI data which were present in
            the Falities data.
     """
+    # Copy default comparison columns
+    facilities_hpi_comparison_columns = FACILITIES_HPI_COMPARISON_COLUMNS.copy()
+    # If specified to ignore occupancy, pop it from the dictionary
+    if should_ignore_occupancy is True:
+        facilities_hpi_comparison_columns.pop("estimated_occupancy")
     # Initialise these two columns with None
     facilities_gdf["change_action"] = None
     facilities_gdf["change_description"] = None

@@ -267,6 +267,9 @@ def compare(
             show_default=False,
         ),
     ],
+    ignore_occupancy: typing.Annotated[
+        bool, typer.Option(help="Whether to ignore occupancy when comparing Facilities to HPI data.")
+    ] = False,
 ):
     """
     Compares hospitals in the NZ Facilities dataset to new hospitals from
@@ -304,7 +307,7 @@ def compare(
         logger.info("Augmenting HPI with HealthCERT occupancy")
         hpi_gdf = add_hpi_occupancy(hpi_gdf, healthcert_gdf, linking_file)
         logger.info("Comparing Facilities to HPI")
-        facilities_gdf, hpi_new_gdf, hpi_matched_gdf = compare_facilities_to_hpi(facilities_gdf, hpi_gdf)
+        facilities_gdf, hpi_new_gdf, hpi_matched_gdf = compare_facilities_to_hpi(facilities_gdf, hpi_gdf, ignore_occupancy)
         logger.info("Saving layers to output GeoPackage")
         facilities_gdf.to_file(output_file, layer="hospital_facilities")
         hpi_new_gdf.to_file(output_file, layer="hpi_new")
