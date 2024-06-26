@@ -33,7 +33,7 @@ def polygonise(
             dir_okay=False,
             file_okay=True,
             resolve_path=True,
-            help="Titles with Owners file.",
+            help="NZ Property Titles GeoPackage exported from LDS.",
         ),
     ],
     owners_file: typing.Annotated[
@@ -44,7 +44,7 @@ def polygonise(
             dir_okay=False,
             file_okay=True,
             resolve_path=True,
-            help="Titles with Owners file.",
+            help="NZ Property Titles Owners List CSV exported from LDS.",
         ),
     ],
     output_file: typing.Annotated[
@@ -69,10 +69,10 @@ def polygonise(
     ] = 50,
 ):
     logger.info(f"Reading input from {input_file}")
-    gdf = gpd.read_file(input_file, layer=input_layer, engine="pyogrio", use_arrow=True)
-    gdf = gdf.to_crs(2193)
-    gdf.sindex
+    input_gdf = gpd.read_file(input_file, layer=input_layer, engine="pyogrio", use_arrow=True)
+    input_gdf = input_gdf.to_crs(2193)
+    input_gdf.sindex
     titles_gdf = build_titles_with_owners(titles_file, owners_file, use_standardised_names)
-    gdf = find_points_in_titles_with_owners(gdf, titles_gdf, use_standardised_names, distance_threshold)
+    input_gdf = find_points_in_titles_with_owners(input_gdf, titles_gdf, use_standardised_names, distance_threshold)
     logger.info(f"Saving output to {output_file}")
-    gdf.to_file(output_file)
+    input_gdf.to_file(output_file)

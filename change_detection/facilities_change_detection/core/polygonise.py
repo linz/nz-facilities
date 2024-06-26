@@ -160,6 +160,7 @@ def build_titles_with_owners(titles_file: Path, owners_file: Path, should_standa
     owners_df.fillna({col: "" for col in ["prime_other_names", "prime_surname", "name_suffix"]}, inplace=True)
     individual_name = owners_df["prime_other_names"] + " " + owners_df["prime_surname"] + " " + owners_df["name_suffix"]
     individual_name = individual_name.str.strip()
+    individual_name = individual_name.replace(" +", " ", regex=True)
     individual_name = individual_name.replace("", pa.NA)
     owners_df["owner_name"] = np.where(individual_name.isna(), owners_df["corporate_name"], individual_name)
     owners_df["owner_name"] = owners_df["owner_name"].astype("string[pyarrow]")
