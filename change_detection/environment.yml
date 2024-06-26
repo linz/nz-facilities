@@ -18,5 +18,7 @@ dependencies:
   - lxml=5
   - pandarallel=1
   - tabulate>=0,<2
+  - pyarrow=16
+  - pyogrio>=0,<2
   - pip:
     - chompjs>=1,<2
