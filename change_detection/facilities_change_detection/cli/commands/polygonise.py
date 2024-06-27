@@ -67,12 +67,27 @@ def polygonise(
     distance_threshold: typing.Annotated[
         int, typer.Option(help="Distance in metres of how close titles with a same name must be to be merged together.")
     ] = 50,
+    save_titles_file: typing.Annotated[
+        Path,
+        typer.Option(
+            dir_okay=False,
+            file_okay=True,
+            resolve_path=True,
+            help=(
+                "Optional path to save the combined titles with owners file to."
+                "Will only be saved if a path to a file is passed via this parameter."
+            ),
+        ),
+    ] = None,
 ):
     logger.info(f"Reading input from {input_file}")
     input_gdf = gpd.read_file(input_file, layer=input_layer, engine="pyogrio", use_arrow=True)
     input_gdf = input_gdf.to_crs(2193)
     input_gdf.sindex
     titles_gdf = build_titles_with_owners(titles_file, owners_file, use_standardised_names)
+    if save_titles_file is not None:
+        logger.info(f"Saving combined titles with owners layer to {save_titles_file}")
+        titles_gdf.to_file(save_titles_file, engine="pyogrio")
     input_gdf = find_points_in_titles_with_owners(input_gdf, titles_gdf, use_standardised_names, distance_threshold)
     logger.info(f"Saving output to {output_file}")
     input_gdf.to_file(output_file)
