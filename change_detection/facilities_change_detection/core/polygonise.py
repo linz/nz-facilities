@@ -39,7 +39,7 @@ def standardise_corporate_name(s: pd.Series) -> pd.Series:
     s = s.str.lower()
     for pattern, replacement, regex in [
         # Replace Quotes, comma, hash, dots, and brackets with a space
-        (r"[',+#\"\.\(\)\[\]]", " ", True),
+        (r"[',+#\"\.\(\)\[\]]", "", True),
         # Replace more than one space with a single space
         (r" +", " ", True),
         # Replace ampersand with and
