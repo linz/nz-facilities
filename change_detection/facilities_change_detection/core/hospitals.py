@@ -592,7 +592,7 @@ def compare_facilities_to_hpi(
             # Loop through the columns to compare, and if they are different,
             # add the old and new values to the changes.
             attr_changes: dict[str, tuple[str, str]] = {}
-            for facilities_col, hpi_col in FACILITIES_HPI_COMPARISON_COLUMNS.items():
+            for facilities_col, hpi_col in facilities_hpi_comparison_columns.items():
                 facilities_val = facilities_attrs[facilities_col]
                 hpi_val = hpi_attrs[hpi_col]
                 # Skip where both values are NaN, as NaN does not equal itself
