@@ -369,7 +369,7 @@ class FacilitiesSchool(Source):
         """
         if not comparison.attrs:
             return None
-        sql = "UPDATE facilities.nz_facilities\nSET\n"
+        sql = "UPDATE facilities.facilities\nSET\n"
         for attr, (old, new) in comparison.changed_attrs().items():
             match attr:
                 case "source_name":
