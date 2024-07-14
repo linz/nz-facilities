@@ -8,7 +8,7 @@ from shapely.geometry.base import BaseGeometry
 
 COMPARABLE = "COMPARABLE"
 DEFAULT_COMPARABLE = "DEFAULT_COMPARABLE"
-DISTANCE_THRESHOLD = 30
+DISTANCE_THRESHOLD = 350
 
 
 class ChangeAction(StrEnum):
