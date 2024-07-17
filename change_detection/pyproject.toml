@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "facilities-change-detection"
+version = "0.1"
+
+[project.scripts]
+facilities-change-detection = "facilities_change_detection.cli.main:app"
+
+[tool.setuptools]
+packages = ["facilities_change_detection"]
