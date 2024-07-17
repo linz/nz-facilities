@@ -192,7 +192,7 @@ class Facility(Source):
         Generates an SQL UPDATE query to update the NZ Facilities database
         with the changes described in the passed comparison object.
         """
-        sql = "UPDATE facilities_lds.nz_facilities\nSET\n"
+        sql = "UPDATE facilities.facilities\nSET\n"
         for attr, (old, new) in changed_attrs.items():
             match attr:
                 case "source_name":
