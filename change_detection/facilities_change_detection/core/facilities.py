@@ -114,9 +114,9 @@ class Facility(Source):
             "last_modified": "date",
             "change_action": "str",
             "change_description": "str",
-            "comments": "str",
             "sql": "str",
-            "geometry_change": "str"
+            "geometry_change": "str",
+            "comments": "str",
         },
     }
 
@@ -159,9 +159,10 @@ class Facility(Source):
                 "last_modified": self.last_modified,
                 "change_action": self.change_action,
                 "change_description": self.change_description,
-                "comments": "",
+
                 "sql": self.sql,
-                "geometry_change": self.geometry_change
+                "geometry_change": self.geometry_change,
+                "comments": "",
             },
         }
 
