@@ -74,6 +74,7 @@ class Source:
     change_action: ChangeAction | None = None
     change_description: str | None = None
     comments: str | None = None
+    geometry_change: str | None = None
 
     @property
     def __geo_interface__(self) -> GeoInterface:
@@ -115,6 +116,7 @@ class Facility(Source):
             "change_description": "str",
             "comments": "str",
             "sql": "str",
+            "geometry_change": "str"
         },
     }
 
@@ -159,6 +161,7 @@ class Facility(Source):
                 "change_description": self.change_description,
                 "comments": "",
                 "sql": self.sql,
+                "geometry_change": self.geometry_change
             },
         }
 
@@ -168,20 +171,23 @@ class Facility(Source):
         if distance is None:
             self.change_action = ChangeAction.UPDATE_GEOM
             self.change_description = "Geom: missing"
-        elif distance < DISTANCE_THRESHOLD:
+            self.geometry_change = "Yes"
+        elif distance > DISTANCE_THRESHOLD:
             self.change_action = ChangeAction.UPDATE_GEOM
             self.change_description = f"Geom: {distance:.1f}m"
+            self.geometry_change = "Yes"
 
         # Compare attributes
         attrs = {attr: (getattr(self, attr), getattr(other, attr)) for attr in check_attrs}
         changed_attrs = {k: (a, b) for k, (a, b) in attrs.items() if a != b}
         if changed_attrs:
-            description = ", ".join(changed_attrs.keys())
+            description = "; ".join([f'{attrib_type}: "{old_attrib}" -> "{new_attrib}"' for attrib_type, (old_attrib, new_attrib) in changed_attrs.items()])
             sql = self._generate_update_sql(changed_attrs)
             if self.change_action == ChangeAction.UPDATE_GEOM:
                 self.change_action = ChangeAction.UPDATE_GEOM_ATTR
                 self.change_description = f"{self.change_description}, Attrs: {description}"
                 self.sql = sql
+                self.geometry_change = "Yes"
             else:
                 self.change_action = ChangeAction.UPDATE_ATTR
                 self.change_description = f"Attrs: {description}"
@@ -192,16 +198,16 @@ class Facility(Source):
         Generates an SQL UPDATE query to update the NZ Facilities database
         with the changes described in the passed comparison object.
         """
-        sql = "UPDATE facilities.facilities\nSET\n"
+        sql = "UPDATE facilities.facilities SET "
         for attr, (old, new) in changed_attrs.items():
             match attr:
                 case "source_name":
-                    sql += f"  name='{new}',\n  source_name='{new}',\n"
+                    sql += f"name='{new}',  source_name='{new}', "
                 case "source_type":
-                    sql += f"  use_type='{new}',\n"
+                    sql += f"use_type='{new}', "
                 case "occupancy":
-                    sql += f"  estimated_occupancy='{new}',\n"
-        sql += "  last_modified=CURRENT_DATE\n"
+                    sql += f"estimated_occupancy='{new}', "
+        sql += "last_modified=CURRENT_DATE "
         sql += f"WHERE facility_id={self.facilities_id} AND source_facility_id={self.source_id};"
         return sql
 
