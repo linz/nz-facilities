@@ -546,6 +546,9 @@ def compare_facilities_to_hpi(
     # Initialise these two columns with None
     facilities_gdf["change_action"] = None
     facilities_gdf["change_description"] = None
+    facilities_gdf["sql"] = None
+    facilities_gdf["geometry_change"] = None
+    facilities_gdf["comments"] = None
     # Filter out any rows which have a missing value for source_facility_id
     facilities_missing_id_gdf = facilities_gdf[facilities_gdf["source_facility_id"].isna()].copy()
     facilities_gdf = facilities_gdf[~facilities_gdf["source_facility_id"].isna()]
@@ -561,18 +564,19 @@ def compare_facilities_to_hpi(
     hpi_dict = df_to_dict(hpi_gdf, "hpi_facility_id")
     # Initialise dicts to track HPI features which are new or which match
     # features in `facilities_gdf`
-    new: dict[str, dict[str, Any]] = {}
-    matched: dict[str, dict[str, Any]] = {}
+    new_facilities: dict[str, dict[str, Any]] = {}
+    matched_facilities: dict[str, dict[str, Any]] = {}
     # Iterate through features from the HPI data
     for hpi_facility_id, hpi_attrs in hpi_dict.items():
         facilities_attrs = facilities_dict.get(hpi_facility_id)
         # If hpi_facility_id was not in the facilities dict,
         # add the feature to the new dict
         if facilities_attrs is None:
-            new[hpi_facility_id] = hpi_attrs
+            new_facilities[hpi_facility_id] = hpi_attrs
+
         else:
             # Add the HPI feature to the matched dict
-            matched[hpi_facility_id] = hpi_attrs
+            matched_facilities[hpi_facility_id] = hpi_attrs
             # Get the geometries for the two features
             hpi_geom = hpi_attrs["geometry"]
             facilities_geom = facilities_attrs["geometry"]
@@ -595,22 +599,46 @@ def compare_facilities_to_hpi(
             for facilities_col, hpi_col in facilities_hpi_comparison_columns.items():
                 facilities_val = facilities_attrs[facilities_col]
                 hpi_val = hpi_attrs[hpi_col]
-                # Skip where both values are NaN, as NaN does not equal itself
-                if pd.isna(facilities_val) and pd.isna(hpi_val):
-                    continue
+                # Reset all estimated_occupancy values which might be nan to zero
+                if pd.isna(hpi_val):
+                    hpi_val = "0"
+                if pd.isna(facilities_val):
+                    facilities_val = "0"
+                # Skip where both values are NaN, as NaN does not equal itself (not required now that nan is replaced by zeros)
+                #if pd.isna(facilities_val) and pd.isna(hpi_val):
+                #    continue
                 if facilities_val != hpi_val:
                     attr_changes[facilities_col] = (facilities_val, hpi_val)
                     facilities_attrs[f"hpi_{hpi_col}"] = hpi_val
             # If there were any changes to attributes in the columns we compared,
             # update the change action and description.
             if attr_changes:
+                if facilities_attrs["facility_id"] is not None:
+                    facility_id = facilities_attrs["facility_id"]
                 description = ";  ".join([f'{field}: "{old}" -> "{new}"' for field, (old, new) in attr_changes.items()])
+
+                sql = "UPDATE facilities.facilities SET "
+                for attr, (old_attr, new_attr) in attr_changes.items():
+                    match attr:
+                        case "name":
+                            sql += f"name='{new_attr}', source_name='{new_attr}', "
+                        case "use_subtype":
+                            sql += f"use_subtype='{new_attr}', "
+                        case "estimated_occupancy":
+                            sql += f"estimated_occupancy='{new_attr}', "
+                sql += "last_modified=CURRENT_DATE "
+                sql += f"WHERE facility_id={facility_id} AND source_facility_id='{hpi_facility_id}';"
+
                 if facilities_attrs["change_action"] == ChangeAction.UPDATE_GEOM:
                     facilities_attrs["change_action"] = ChangeAction.UPDATE_GEOM_ATTR
                     facilities_attrs["change_description"] += f";  {description}"
+                    facilities_attrs["sql"] = sql
+                    facilities_attrs["geometry_change"] = "Yes"
                 else:
                     facilities_attrs["change_action"] = ChangeAction.UPDATE_ATTR
                     facilities_attrs["change_description"] = description
+                    facilities_attrs["sql"] = sql
+
     # Iterate through features from the Facilities data
     for source_facility_id, facilities_attrs in facilities_dict.items():
         # If any source_facility_id is not present in the HPI data,
@@ -619,8 +647,8 @@ def compare_facilities_to_hpi(
             facilities_attrs["change_action"] = ChangeAction.REMOVE
     # Convert the dictionaries back to GeoDataFrames
     updated_facilities_gdf = gpd.GeoDataFrame(dict_to_df(facilities_dict, "source_facility_id"), geometry="geometry", crs=2193)
-    hpi_new_gdf = gpd.GeoDataFrame(dict_to_df(new, "hpi_facility_id"), geometry="geometry", crs=2193)
-    hpi_matched_gdf = gpd.GeoDataFrame(dict_to_df(matched, "hpi_facility_id"), geometry="geometry", crs=2193)
+    hpi_new_gdf = gpd.GeoDataFrame(dict_to_df(new_facilities, "hpi_facility_id"), geometry="geometry", crs=2193)
+    hpi_matched_gdf = gpd.GeoDataFrame(dict_to_df(matched_facilities, "hpi_facility_id"), geometry="geometry", crs=2193)
     # Add back in facilities rows with missing value for source_facility_id
     if not facilities_missing_id_gdf.empty:
         updated_facilities_gdf = gpd.GeoDataFrame(
