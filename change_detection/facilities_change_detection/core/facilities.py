@@ -192,16 +192,16 @@ class Facility(Source):
         Generates an SQL UPDATE query to update the NZ Facilities database
         with the changes described in the passed comparison object.
         """
-        sql = "UPDATE facilities.facilities\nSET\n"
+        sql = "UPDATE facilities.facilities SET "
         for attr, (old, new) in changed_attrs.items():
             match attr:
                 case "source_name":
-                    sql += f"  name='{new}',\n  source_name='{new}',\n"
+                    sql += f"name='{new}',  source_name='{new}',"
                 case "source_type":
-                    sql += f"  use_type='{new}',\n"
+                    sql += f"use_type='{new}', "
                 case "occupancy":
-                    sql += f"  estimated_occupancy='{new}',\n"
-        sql += "  last_modified=CURRENT_DATE\n"
+                    sql += f"estimated_occupancy='{new}', "
+        sql += "last_modified=CURRENT_DATE "
         sql += f"WHERE facility_id={self.facilities_id} AND source_facility_id={self.source_id};"
         return sql
 
