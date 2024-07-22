@@ -616,16 +616,16 @@ def compare_facilities_to_hpi(
                     facility_id = facilities_attrs["facility_id"]
                 description = ";  ".join([f'{field}: "{old}" -> "{new}"' for field, (old, new) in attr_changes.items()])
 
-                sql = "UPDATE facilities.facilities\nSET\n"
+                sql = "UPDATE facilities.facilities SET "
                 for attr, (old_attr, new_attr) in attr_changes.items():
                     match attr:
                         case "name":
-                            sql += f"  name='{new_attr}',\n  source_name='{new_attr}',\n"
+                            sql += f"  name='{new_attr}',   source_name='{new_attr}', "
                         case "use_subtype":
-                            sql += f"  use_subtype='{new_attr}',\n"
+                            sql += f"use_subtype='{new_attr}', "
                         case "estimated_occupancy":
-                            sql += f"  estimated_occupancy='{new_attr}',\n"
-                sql += "  last_modified=CURRENT_DATE\n"
+                            sql += f"estimated_occupancy='{new_attr}', "
+                sql += "last_modified=CURRENT_DATE "
                 sql += f"WHERE facility_id={facility_id} AND source_facility_id='{hpi_facility_id}';"
 
                 if facilities_attrs["change_action"] == ChangeAction.UPDATE_GEOM:
