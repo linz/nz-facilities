@@ -620,7 +620,7 @@ def compare_facilities_to_hpi(
                 for attr, (old_attr, new_attr) in attr_changes.items():
                     match attr:
                         case "name":
-                            sql += f"  name='{new_attr}',   source_name='{new_attr}', "
+                            sql += f"name='{new_attr}', source_name='{new_attr}', "
                         case "use_subtype":
                             sql += f"use_subtype='{new_attr}', "
                         case "estimated_occupancy":
