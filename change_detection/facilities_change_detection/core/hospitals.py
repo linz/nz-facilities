@@ -548,6 +548,7 @@ def compare_facilities_to_hpi(
     facilities_gdf["change_description"] = None
     facilities_gdf["sql"] = None
     facilities_gdf["geometry_change"] = None
+    facilities_gdf["comments"] = None
     # Filter out any rows which have a missing value for source_facility_id
     facilities_missing_id_gdf = facilities_gdf[facilities_gdf["source_facility_id"].isna()].copy()
     facilities_gdf = facilities_gdf[~facilities_gdf["source_facility_id"].isna()]
