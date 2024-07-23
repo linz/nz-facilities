@@ -172,11 +172,11 @@ class Facility(Source):
         if distance is None:
             self.change_action = ChangeAction.UPDATE_GEOM
             self.change_description = "Geom: missing"
-            self.geometry_change = "Yes"
+            self.geometry_change = "Missing"
         elif distance > DISTANCE_THRESHOLD:
             self.change_action = ChangeAction.UPDATE_GEOM
             self.change_description = f"Geom: {distance:.1f}m"
-            self.geometry_change = "Yes"
+            self.geometry_change = "Modify"
 
         # Compare attributes
         attrs = {attr: (getattr(self, attr), getattr(other, attr)) for attr in check_attrs}
@@ -188,7 +188,7 @@ class Facility(Source):
                 self.change_action = ChangeAction.UPDATE_GEOM_ATTR
                 self.change_description = f"{self.change_description}, Attrs: {description}"
                 self.sql = sql
-                self.geometry_change = "Yes"
+                self.geometry_change = "Modify"
             else:
                 self.change_action = ChangeAction.UPDATE_ATTR
                 self.change_description = f"Attrs: {description}"
