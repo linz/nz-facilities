@@ -25,7 +25,7 @@ from facilities_change_detection.core.util import (
 logger = get_logger()
 
 # The URL of the page which links to the HPI Excel files
-HPI_EXCEL_PAGE_URL = (
+hpi_EXCEL_PAGE_URL = (
     "https://www.tewhatuora.govt.nz/"
     "for-health-professionals/data-and-statistics/nz-health-statistics/"
     "data-references/code-tables/common-code-tables/"
@@ -33,7 +33,7 @@ HPI_EXCEL_PAGE_URL = (
 # Columns to read from an HPI Excel file. The keys are the column names
 # following standardisation using util.standardise_column_name, and the values
 # are what the column will be renamed to.
-HPI_COLUMNS_OF_INTEREST = {
+hpi_COLUMNS_OF_INTEREST = {
     "name": "name",
     "hpi_facility_id": "hpi_facility_id",
     "address": "address",
@@ -46,7 +46,8 @@ HPI_COLUMNS_OF_INTEREST = {
 # Columns to compare for changes when comparing NZ Facilities data to HPI data.
 # Keys are column names in NZ Facilities, with values of column names to compare
 # against in the HPI data.
-FACILITIES_HPI_COMPARISON_COLUMNS = {"name": "name", "use_subtype": "type", "estimated_occupancy": "occupancy"}
+#FACILITIES_hpi_COMPARISON_COLUMNS = {"name": "name", "use_subtype": "type", "estimated_occupancy": "occupancy"}
+FACILITIES_hpi_COMPARISON_COLUMNS = {"name": "name", "use_type": "type", "estimated_occupancy": "occupancy"}
 # URLs of pages with maps of HealthCERT featuress to scrape
 HEALTHCERT_MAP_URLS = {
     "Public hospital": "https://www.health.govt.nz/your-health/certified-providers/public-hospital",
@@ -91,7 +92,7 @@ def download_hpi_excel(output_folder: Path, overwrite: bool) -> Path:
     # Download the landing page and raise exception for any errors
     print(logger.getEffectiveLevel())
     logger.info("Downloading HTML of landing page")
-    r = requests.get(HPI_EXCEL_PAGE_URL)
+    r = requests.get(hpi_EXCEL_PAGE_URL)
     r.raise_for_status()
     # Parse HTML of landing page
     tree = lxml.html.fromstring(r.content)
@@ -104,7 +105,7 @@ def download_hpi_excel(output_folder: Path, overwrite: bool) -> Path:
     logger.info("Parsed download link from landing page")
     # Extract href attribute from <a> element and resolve full download URL
     href = els[0].attrib["href"]
-    download_url = urljoin(HPI_EXCEL_PAGE_URL, href)
+    download_url = urljoin(hpi_EXCEL_PAGE_URL, href)
     # Extract date from filename and build standardised output filename
     download_filename = href.split("/")[-1]
     if name_match := re.match(r"Facilities(\d{4})(\d{2})(\d{2})", download_filename):
@@ -245,7 +246,7 @@ def load_hpi_excel(input_file: Path, ignore_file: Path | None = None) -> gpd.Geo
 
     To standardise the data, we perform the following actions:
     - Filter the dataset to contain only columns of interest, defined in
-      `HPI_COLUMNS_OF_INTEREST`.
+      `hpi_COLUMNS_OF_INTEREST`.
     - Strip leading and trailing whitespace from columns where this may be
       present.
     - Strip a trailing comma if present from the "address" column values.
@@ -273,7 +274,7 @@ def load_hpi_excel(input_file: Path, ignore_file: Path | None = None) -> gpd.Geo
     # Load the file using Pandas
     hpi_df = pd.read_excel(input_file, sheet_name=sheet_name, engine="calamine")
     # Filter to just the columns we're interested in
-    hpi_df = filter_df_columns(hpi_df, HPI_COLUMNS_OF_INTEREST)
+    hpi_df = filter_df_columns(hpi_df, hpi_COLUMNS_OF_INTEREST)
     # Strip leading and trailing whitespace from these columns
     hpi_df = strip_column_values(hpi_df, ["name", "address", "type", "organisation_name"])
     # If an ignore file was supplied,
@@ -539,7 +540,7 @@ def compare_facilities_to_hpi(
            the Falities data.
     """
     # Copy default comparison columns
-    facilities_hpi_comparison_columns = FACILITIES_HPI_COMPARISON_COLUMNS.copy()
+    facilities_hpi_comparison_columns = FACILITIES_hpi_COMPARISON_COLUMNS.copy()
     # If specified to ignore occupancy, pop it from the dictionary
     if should_ignore_occupancy is True:
         facilities_hpi_comparison_columns.pop("estimated_occupancy")
@@ -609,7 +610,7 @@ def compare_facilities_to_hpi(
                 #    continue
                 if facilities_val != hpi_val:
                     attr_changes[facilities_col] = (facilities_val, hpi_val)
-                    facilities_attrs[f"hpi_{hpi_col}"] = hpi_val
+                    facilities_attrs[f"new_source_{hpi_col}"] = hpi_val
             # If there were any changes to attributes in the columns we compared,
             # update the change action and description.
             if attr_changes:
@@ -622,8 +623,8 @@ def compare_facilities_to_hpi(
                     match attr:
                         case "name":
                             sql += f"name='{new_attr}', source_name='{new_attr}', "
-                        case "use_subtype":
-                            sql += f"use_subtype='{new_attr}', "
+                        case "use_type":
+                            sql += f"use_type='{new_attr}', "
                         case "estimated_occupancy":
                             sql += f"estimated_occupancy='{new_attr}', "
                 sql += "last_modified=CURRENT_DATE "
@@ -633,7 +634,7 @@ def compare_facilities_to_hpi(
                     facilities_attrs["change_action"] = ChangeAction.UPDATE_GEOM_ATTR
                     facilities_attrs["change_description"] += f";  {description}"
                     facilities_attrs["sql"] = sql
-                    facilities_attrs["geometry_change"] = "Yes"
+                    facilities_attrs["geometry_change"] = "Modify"
                 else:
                     facilities_attrs["change_action"] = ChangeAction.UPDATE_ATTR
                     facilities_attrs["change_description"] = description
@@ -645,6 +646,7 @@ def compare_facilities_to_hpi(
         # mark it to be removed.
         if source_facility_id not in hpi_dict:
             facilities_attrs["change_action"] = ChangeAction.REMOVE
+            facilities_attrs["geometry_change"] = "Delete"
     # Convert the dictionaries back to GeoDataFrames
     updated_facilities_gdf = gpd.GeoDataFrame(dict_to_df(facilities_dict, "source_facility_id"), geometry="geometry", crs=2193)
     hpi_new_gdf = gpd.GeoDataFrame(dict_to_df(new_facilities, "hpi_facility_id"), geometry="geometry", crs=2193)

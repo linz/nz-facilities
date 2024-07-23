@@ -146,11 +146,11 @@
   </elevation>
   <renderer-v2 referencescale="-1" forceraster="0" symbollevels="0" type="categorizedSymbol" enableorderby="1" attr="likelihood">
     <categories>
-      <category label="Very unlikely" uuid="{884d9732-968c-4bd9-9059-cde53dfa1e69}" render="true" symbol="0" value="1" type="double"/>
-      <category label="Unlikely" uuid="{ce412c02-83de-482a-80b4-12abbb3bb6c8}" render="true" symbol="1" value="2" type="double"/>
-      <category label="Maybe" uuid="{361693e8-8523-4e5f-a7a8-b7eb1941c61b}" render="true" symbol="2" value="3" type="double"/>
-      <category label="Likely" uuid="{f73e8381-13dd-402c-99c8-76df448cccbc}" render="true" symbol="3" value="4" type="double"/>
-      <category label="Very likely" uuid="{7159784a-82a7-4ee1-a192-8ca51dd0e896}" render="true" symbol="4" value="5" type="double"/>
+      <category label="1 Very unlikely" uuid="{884d9732-968c-4bd9-9059-cde53dfa1e69}" render="true" symbol="0" value="1" type="double"/>
+      <category label="2 Unlikely" uuid="{ce412c02-83de-482a-80b4-12abbb3bb6c8}" render="true" symbol="1" value="2" type="double"/>
+      <category label="3 Maybe" uuid="{361693e8-8523-4e5f-a7a8-b7eb1941c61b}" render="true" symbol="2" value="3" type="double"/>
+      <category label="4 Likely" uuid="{f73e8381-13dd-402c-99c8-76df448cccbc}" render="true" symbol="3" value="4" type="double"/>
+      <category label="5 Very likely" uuid="{7159784a-82a7-4ee1-a192-8ca51dd0e896}" render="true" symbol="4" value="5" type="double"/>
     </categories>
     <symbols>
       <symbol is_animated="0" name="0" clip_to_extent="1" force_rhr="0" type="marker" alpha="1" frame_rate="10">
