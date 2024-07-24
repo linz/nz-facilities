@@ -117,6 +117,9 @@ class Facility(Source):
             "sql": "str",
             "geometry_change": "str",
             "comments": "str",
+            "new_source_name": "str",
+            "new_source_use_type": "str",
+            "new_source_occupancy": "str"
         },
     }
 
@@ -163,6 +166,10 @@ class Facility(Source):
                 "sql": self.sql,
                 "geometry_change": self.geometry_change,
                 "comments": "",
+                "new_source_name": self.new_source_name,
+                "new_source_use_type": self.new_source_use_type,
+                "new_source_occupancy": self.new_source_occupancy,
+
             },
         }
 
@@ -184,15 +191,37 @@ class Facility(Source):
         if changed_attrs:
             description = "; ".join([f'{attrib_type}: "{old_attrib}" -> "{new_attrib}"' for attrib_type, (old_attrib, new_attrib) in changed_attrs.items()])
             sql = self._generate_update_sql(changed_attrs)
-            if self.change_action == ChangeAction.UPDATE_GEOM:
-                self.change_action = ChangeAction.UPDATE_GEOM_ATTR
-                self.change_description = f"{self.change_description}, Attrs: {description}"
-                self.sql = sql
-                self.geometry_change = "Modify"
-            else:
-                self.change_action = ChangeAction.UPDATE_ATTR
-                self.change_description = f"Attrs: {description}"
-                self.sql = sql
+            print("description: ", description)
+            for attrib_type, (old_attrib, new_attrib) in changed_attrs.items():
+                print("attrib_type: ", attrib_type)
+                print("new_attrib: ", new_attrib)
+                if attrib_type == "source_name":
+                    new_source_name = new_attrib
+                if attrib_type == "source_type":
+                    new_source_use_type = new_attrib
+                if attrib_type == "occupancy":
+                    new_source_occupancy = new_attrib
+                if self.change_action == ChangeAction.UPDATE_GEOM:
+                    self.change_action = ChangeAction.UPDATE_GEOM_ATTR
+                    self.change_description = f"{self.change_description}, Attrs: {description}"
+                    self.sql = sql
+                    self.geometry_change = "Modify"
+                    if attrib_type == "source_name":
+                        self.new_source_name = new_source_name
+                    elif attrib_type == "source_type":
+                        self.new_source_use_type = new_source_use_type
+                    elif attrib_type == "occupancy":
+                        self.new_source_occupancy = new_source_occupancy
+                else:
+                    self.change_action = ChangeAction.UPDATE_ATTR
+                    self.change_description = f"Attrs: {description}"
+                    self.sql = sql
+                    if attrib_type == "source_name":
+                        self.new_source_name = new_source_name
+                    elif attrib_type == "source_type":
+                        self.new_source_use_type = new_source_use_type
+                    elif attrib_type == "occupancy":
+                        self.new_source_occupancy = new_source_occupancy
 
     def _generate_update_sql(self, changed_attrs: dict[str, tuple[str, str]]) -> str | None:
         """
