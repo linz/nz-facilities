@@ -75,6 +75,9 @@ class Source:
     change_description: str | None = None
     comments: str | None = None
     geometry_change: str | None = None
+    new_source_name: str | None = None
+    new_source_use_type: str | None = None
+    new_source_occupancy: str | None = None
 
     @property
     def __geo_interface__(self) -> GeoInterface:
