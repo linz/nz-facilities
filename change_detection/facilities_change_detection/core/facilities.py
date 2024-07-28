@@ -122,7 +122,7 @@ class Facility(Source):
             "comments": "str",
             "new_source_name": "str",
             "new_source_use_type": "str",
-            "new_source_occupancy": "str"
+            "new_source_occupancy": "str",
         },
     }
 
@@ -190,41 +190,24 @@ class Facility(Source):
 
         # Compare attributes
         attrs = {attr: (getattr(self, attr), getattr(other, attr)) for attr in check_attrs}
+        for attrib_type, (old_attrib, new_attrib) in attrs.items():
+            if attrib_type == "source_name":
+                self.new_source_name = new_attrib
+            if attrib_type == "source_type":
+                self.new_source_use_type = new_attrib
+            if attrib_type == "occupancy":
+                self.new_source_occupancy = new_attrib
         changed_attrs = {k: (a, b) for k, (a, b) in attrs.items() if a != b}
         if changed_attrs:
             description = "; ".join([f'{attrib_type}: "{old_attrib}" -> "{new_attrib}"' for attrib_type, (old_attrib, new_attrib) in changed_attrs.items()])
-            sql = self._generate_update_sql(changed_attrs)
-            print("description: ", description)
-            for attrib_type, (old_attrib, new_attrib) in changed_attrs.items():
-                print("attrib_type: ", attrib_type)
-                print("new_attrib: ", new_attrib)
-                if attrib_type == "source_name":
-                    new_source_name = new_attrib
-                if attrib_type == "source_type":
-                    new_source_use_type = new_attrib
-                if attrib_type == "occupancy":
-                    new_source_occupancy = new_attrib
-                if self.change_action == ChangeAction.UPDATE_GEOM:
-                    self.change_action = ChangeAction.UPDATE_GEOM_ATTR
-                    self.change_description = f"{self.change_description}, Attrs: {description}"
-                    self.sql = sql
-                    self.geometry_change = "Modify"
-                    if attrib_type == "source_name":
-                        self.new_source_name = new_source_name
-                    elif attrib_type == "source_type":
-                        self.new_source_use_type = new_source_use_type
-                    elif attrib_type == "occupancy":
-                        self.new_source_occupancy = new_source_occupancy
-                else:
-                    self.change_action = ChangeAction.UPDATE_ATTR
-                    self.change_description = f"Attrs: {description}"
-                    self.sql = sql
-                    if attrib_type == "source_name":
-                        self.new_source_name = new_source_name
-                    elif attrib_type == "source_type":
-                        self.new_source_use_type = new_source_use_type
-                    elif attrib_type == "occupancy":
-                        self.new_source_occupancy = new_source_occupancy
+            if self.change_action == ChangeAction.UPDATE_GEOM:
+                self.change_action = ChangeAction.UPDATE_GEOM_ATTR
+                self.change_description = f"{self.change_description}, Attrs: {description}"
+            else:
+                self.change_action = ChangeAction.UPDATE_ATTR
+                self.change_description = f"Attrs: {description}"
+            self.sql = self._generate_update_sql(changed_attrs)
+            
 
     def _generate_update_sql(self, changed_attrs: dict[str, tuple[str, str]]) -> str | None:
         """
@@ -262,6 +245,7 @@ def compare_facilities(
             facility.update_from_other(external_match, check_attrs=comparison_attrs)
         else:
             facility.change_action = ChangeAction.REMOVE
+            facility.geometry_change = "Delete"
     for external_source_id, external_source in external_sources.items():
         if external_source.change_action != ChangeAction.IGNORE and external_source_id not in facilities:
             external_source.change_action = ChangeAction.ADD
