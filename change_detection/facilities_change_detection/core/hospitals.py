@@ -46,7 +46,7 @@ HPI_COLUMNS_OF_INTEREST = {
 # Columns to compare for changes when comparing NZ Facilities data to HPI data.
 # Keys are column names in NZ Facilities, with values of column names to compare
 # against in the HPI data.
-FACILITIES_HPI_COMPARISON_COLUMNS = {"name": "name", "use_subtype": "type", "estimated_occupancy": "occupancy"}
+FACILITIES_HPI_COMPARISON_COLUMNS = {"name": "name", "source_name": "name", "use_type": "type", "estimated_occupancy": "occupancy"}
 # URLs of pages with maps of HealthCERT featuress to scrape
 HEALTHCERT_MAP_URLS = {
     "Public hospital": "https://www.health.govt.nz/your-health/certified-providers/public-hospital",
@@ -600,16 +600,16 @@ def compare_facilities_to_hpi(
                 facilities_val = facilities_attrs[facilities_col]
                 hpi_val = hpi_attrs[hpi_col]
                 # Reset all estimated_occupancy values which might be nan to zero
-                if pd.isna(hpi_val):
-                    hpi_val = "0"
-                if pd.isna(facilities_val):
+                if facilities_col == "estimated_occupancy"and pd.isna(facilities_val):
                     facilities_val = "0"
+                if hpi_col == "occupancy" and pd.isna(hpi_val):
+                    hpi_val = "0"
                 # Skip where both values are NaN, as NaN does not equal itself (not required now that nan is replaced by zeros)
                 #if pd.isna(facilities_val) and pd.isna(hpi_val):
                 #    continue
+                facilities_attrs[f"new_source_{hpi_col}"] = hpi_val
                 if facilities_val != hpi_val:
                     attr_changes[facilities_col] = (facilities_val, hpi_val)
-                    facilities_attrs[f"hpi_{hpi_col}"] = hpi_val
             # If there were any changes to attributes in the columns we compared,
             # update the change action and description.
             if attr_changes:
@@ -621,9 +621,11 @@ def compare_facilities_to_hpi(
                 for attr, (old_attr, new_attr) in attr_changes.items():
                     match attr:
                         case "name":
-                            sql += f"name='{new_attr}', source_name='{new_attr}', "
-                        case "use_subtype":
-                            sql += f"use_subtype='{new_attr}', "
+                            sql += f"name='{new_attr}', "
+                        case "source_name":
+                            sql += f"source_name='{new_attr}', "
+                        case "use_type":
+                            sql += f"use_type='{new_attr}', "
                         case "estimated_occupancy":
                             sql += f"estimated_occupancy='{new_attr}', "
                 sql += "last_modified=CURRENT_DATE "
@@ -633,7 +635,7 @@ def compare_facilities_to_hpi(
                     facilities_attrs["change_action"] = ChangeAction.UPDATE_GEOM_ATTR
                     facilities_attrs["change_description"] += f";  {description}"
                     facilities_attrs["sql"] = sql
-                    facilities_attrs["geometry_change"] = "Yes"
+                    facilities_attrs["geometry_change"] = "Modify"
                 else:
                     facilities_attrs["change_action"] = ChangeAction.UPDATE_ATTR
                     facilities_attrs["change_description"] = description
@@ -645,6 +647,7 @@ def compare_facilities_to_hpi(
         # mark it to be removed.
         if source_facility_id not in hpi_dict:
             facilities_attrs["change_action"] = ChangeAction.REMOVE
+            facilities_attrs["geometry_change"] = "Delete"
     # Convert the dictionaries back to GeoDataFrames
     updated_facilities_gdf = gpd.GeoDataFrame(dict_to_df(facilities_dict, "source_facility_id"), geometry="geometry", crs=2193)
     hpi_new_gdf = gpd.GeoDataFrame(dict_to_df(new_facilities, "hpi_facility_id"), geometry="geometry", crs=2193)

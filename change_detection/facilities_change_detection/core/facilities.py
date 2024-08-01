@@ -75,6 +75,9 @@ class Source:
     change_description: str | None = None
     comments: str | None = None
     geometry_change: str | None = None
+    new_source_name: str | None = None
+    new_source_use_type: str | None = None
+    new_source_occupancy: str | None = None
 
     @property
     def __geo_interface__(self) -> GeoInterface:
@@ -117,6 +120,9 @@ class Facility(Source):
             "sql": "str",
             "geometry_change": "str",
             "comments": "str",
+            "new_source_name": "str",
+            "new_source_use_type": "str",
+            "new_source_occupancy": "str",
         },
     }
 
@@ -163,6 +169,10 @@ class Facility(Source):
                 "sql": self.sql,
                 "geometry_change": self.geometry_change,
                 "comments": "",
+                "new_source_name": self.new_source_name,
+                "new_source_use_type": self.new_source_use_type,
+                "new_source_occupancy": self.new_source_occupancy,
+
             },
         }
 
@@ -172,27 +182,32 @@ class Facility(Source):
         if distance is None:
             self.change_action = ChangeAction.UPDATE_GEOM
             self.change_description = "Geom: missing"
-            self.geometry_change = "Yes"
+            self.geometry_change = "Missing"
         elif distance > DISTANCE_THRESHOLD:
             self.change_action = ChangeAction.UPDATE_GEOM
             self.change_description = f"Geom: {distance:.1f}m"
-            self.geometry_change = "Yes"
+            self.geometry_change = "Modify"
 
         # Compare attributes
         attrs = {attr: (getattr(self, attr), getattr(other, attr)) for attr in check_attrs}
+        for attrib_type, (old_attrib, new_attrib) in attrs.items():
+            if attrib_type == "source_name":
+                self.new_source_name = new_attrib
+            if attrib_type == "source_type":
+                self.new_source_use_type = new_attrib
+            if attrib_type == "occupancy":
+                self.new_source_occupancy = new_attrib
         changed_attrs = {k: (a, b) for k, (a, b) in attrs.items() if a != b}
         if changed_attrs:
             description = "; ".join([f'{attrib_type}: "{old_attrib}" -> "{new_attrib}"' for attrib_type, (old_attrib, new_attrib) in changed_attrs.items()])
-            sql = self._generate_update_sql(changed_attrs)
             if self.change_action == ChangeAction.UPDATE_GEOM:
                 self.change_action = ChangeAction.UPDATE_GEOM_ATTR
                 self.change_description = f"{self.change_description}, Attrs: {description}"
-                self.sql = sql
-                self.geometry_change = "Yes"
             else:
                 self.change_action = ChangeAction.UPDATE_ATTR
                 self.change_description = f"Attrs: {description}"
-                self.sql = sql
+            self.sql = self._generate_update_sql(changed_attrs)
+            
 
     def _generate_update_sql(self, changed_attrs: dict[str, tuple[str, str]]) -> str | None:
         """
@@ -230,6 +245,7 @@ def compare_facilities(
             facility.update_from_other(external_match, check_attrs=comparison_attrs)
         else:
             facility.change_action = ChangeAction.REMOVE
+            facility.geometry_change = "Delete"
     for external_source_id, external_source in external_sources.items():
         if external_source.change_action != ChangeAction.IGNORE and external_source_id not in facilities:
             external_source.change_action = ChangeAction.ADD
