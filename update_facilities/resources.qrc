@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/update_facilities" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
