@@ -125,3 +125,65 @@ class DBConnection:
                 # This occurs if a DatabaseError has been raised in db_execute()
                 cursor.close()
         return None
+
+    def db_execute_and_return_without_commit(self, sql, data=None):
+        """Execute, return result, but do not commit
+
+        @param  sql:    sql statement
+        @type   sql:    string
+        @param  data:    data inserted into SQL statement
+        @type   data:    tuple
+
+        @return:    Boolean if no error was raised
+        @rtype:     bool
+        """
+        # Set cursor
+        cursor = self.conn.cursor()
+
+        # Execute query
+        try:
+            cursor.execute(sql, data)
+            rows = [list(row) for row in cursor]
+            cursor.close()
+            return rows
+        except psycopg2.DatabaseError as db_error:
+            database_warning("Database Error", str(db_error), "warning")
+            self.conn.rollback()
+            raise db_error
+
+        except psycopg2.InterfaceError as error:
+            # Raise the error
+            cursor.close()
+            self.conn.rollback()
+            raise error
+
+    def db_execute_without_commit(self, sql, data=None):
+        """Execute but do not commit
+
+        @param  sql:    sql statement
+        @type   sql:    string
+        @param  data:    data inserted into SQL statement
+        @type   data:    tuple
+
+        @return:    Boolean if no error was raised
+        @rtype:     bool
+        """
+        # Set cursor
+        cursor = self.conn.cursor()
+
+        # Execute query
+        try:
+            cursor.execute(sql, data)
+            if cursor:
+                cursor.close()
+            return None
+        except psycopg2.DatabaseError as db_error:
+            database_warning("Database Error", str(db_error), "warning")
+            self.conn.rollback()
+            raise db_error
+
+        except psycopg2.InterfaceError as error:
+            # Raise the error
+            cursor.close()
+            self.conn.rollback()
+            raise error

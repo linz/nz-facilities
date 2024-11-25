@@ -28,15 +28,18 @@ from qgis.core import QgsMapLayerProxyModel
 from qgis.PyQt import uic
 from qgis.PyQt import QtWidgets
 from qgis.PyQt.QtCore import pyqtSlot
+from qgis.PyQt.QtGui import QIcon
 
 # This loads your .ui file so that PyQt can populate your plugin with the elements from Qt Designer
 FORM_CLASS, _ = uic.loadUiType(
     os.path.join(os.path.dirname(__file__), "update_facilities_dialog_base.ui")
 )
 
+__location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+
 
 class UpdateFacilitiesDialog(QtWidgets.QDialog, FORM_CLASS):
-    def __init__(self, update_facilities):
+    def __init__(self, update_facilities_plugin):
         """Constructor."""
         super(UpdateFacilitiesDialog, self).__init__()
         # Set up the user interface from Designer through FORM_CLASS.
@@ -45,9 +48,9 @@ class UpdateFacilitiesDialog(QtWidgets.QDialog, FORM_CLASS):
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
         self.setupUi(self)
-        self.update_facilities = update_facilities
+        self.update_facilities_plugin = update_facilities_plugin
 
-        self.btn_test_dbconn.clicked.connect(self.on_test_dbconn)
+        self.btn_test_dbconn.clicked.connect(self.on_btn_test_dbconn)
 
         # set the combobox which takes in the input for loading into the temp layer
         # set so only accepts vector layers
@@ -62,10 +65,28 @@ class UpdateFacilitiesDialog(QtWidgets.QDialog, FORM_CLASS):
             self.on_btn_update_temp_facilities
         )
 
+        self.btn_update_facilities_table.clicked.connect(
+            self.on_btn_update_facilities_table
+        )
+
+        icon_path = os.path.join(__location__, "media", "clear_message_icon.svg")
+        self.pb_clear_message.setIcon(QIcon(icon_path))
+        self.pb_clear_message.setToolTip("Clears the message box")
+
+        self.pb_clear_message.clicked.connect(self.on_pb_clear_message)
+
     @pyqtSlot()
-    def on_test_dbconn(self):
-        self.update_facilities.test_dbconn()
+    def on_btn_test_dbconn(self):
+        self.update_facilities_plugin.run_test_dbconn()
+
+    @pyqtSlot()
+    def on_btn_update_facilities_table(self):
+        self.update_facilities_plugin.run_update_facilities_table()
 
     @pyqtSlot()
     def on_btn_update_temp_facilities(self):
-        self.update_facilities.update_temp_facilities()
+        self.update_facilities_plugin.run_update_temp_facilities()
+
+    @pyqtSlot()
+    def on_pb_clear_message(self):
+        self.update_facilities_plugin.dlg.msgbox.clear()

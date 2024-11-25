@@ -34,12 +34,13 @@ import os.path
 from update_facilities.utilities.config import get_config_path, read_config
 from update_facilities.utilities.dbconn import DBConnection
 from update_facilities.test_dbconn import TestDBConn
+from update_facilities.update_facilities_table import UpdateFacilitiesTable
 from update_facilities.update_temp_facilities import UpdateTempFacilities
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
 
 
-class UpdateFacilities:
+class UpdateFacilitiesPlugin:
     """QGIS Plugin Implementation."""
 
     def __init__(self, iface):
@@ -210,24 +211,27 @@ class UpdateFacilities:
         )
 
         # Run the dialog event loop
-        result = self.dlg.exec_()
+        self.dlg.exec_()
 
-        # See if OK was pressed
-        if result:
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
-            pass
-
-    def test_dbconn(self):
+    def run_test_dbconn(self):
         """Checks able to connect to the database and contains assumed schema"""
         testdb = TestDBConn(self)
         connection_created = testdb.check_conn()
         if connection_created:
-            testdb.check_temp_facilities_table()
+            temp_facilities_table_correct = testdb.check_temp_facilities_table()
 
-        testdb = None
+            facilities_table_correct = testdb.check_facilities_table()
+            if not temp_facilities_table_correct or not facilities_table_correct:
+                testdb = None
+                return False
+            else:
+                return True
 
-    def update_temp_facilities(self):
+        else:
+            testdb = None
+            return False
+
+    def run_update_temp_facilities(self):
         """Uploads new facilities layer to the temp_facilities table in the database"""
         update_temp_facilities = UpdateTempFacilities(self)
 
@@ -240,3 +244,12 @@ class UpdateFacilities:
             return False
 
         update_temp_facilities.update_temp_facilities()
+
+    def run_update_facilities_table(self):
+        """Updates facilities table using the temp_facilities table in the database"""
+        update_facilities_table = UpdateFacilitiesTable(self)
+
+        self.dbconn = DBConnection(self.name, self.host, self.user, self.password)
+        self.dbconn.connect()
+
+        update_facilities_table.update_facilities_table()

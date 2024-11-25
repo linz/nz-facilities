@@ -1,7 +1,8 @@
+from datetime import datetime
 import os.path
 
+
 from qgis.core import (
-    QgsVectorLayerExporter,
     QgsWkbTypes,
 )
 
@@ -12,40 +13,40 @@ __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file
 
 
 class UpdateTempFacilities(object):
-    """Used to test a dbconn has been made and database contains expected schema"""
+    """Used to update the temp facilities table with the reviewed gpkg from the change_detection scripts"""
 
-    def __init__(self, update_facilities):
-        self.update_facilities = update_facilities
+    def __init__(self, update_facilities_plugin):
+        self.update_facilities_plugin = update_facilities_plugin
 
     def check_input_facilities_layer(self):
         """
         Checks input layer is valid, had correct geometry and crs, and correct fields
         """
-        self.update_facilities.dlg.msgbox.insertPlainText(
+        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
             "checking input facilities layer\n"
         )
 
         invalid_input = False
         self.input_layer = (
-            self.update_facilities.dlg.comboBox_update_temp_facilities.currentLayer()
+            self.update_facilities_plugin.dlg.comboBox_update_temp_facilities.currentLayer()
         )
 
         if self.input_layer is None:
-            self.update_facilities.dlg.msgbox.insertHtml(
+            self.update_facilities_plugin.dlg.msgbox.insertHtml(
                 '> <font color="red"><b>Error: no input layer</b></font><br>'
             )
             invalid_input = True
             return False
 
         if not self.input_layer.isValid():
-            self.update_facilities.dlg.msgbox.insertHtml(
+            self.update_facilities_plugin.dlg.msgbox.insertHtml(
                 '> <font color="red"><b>Error: input layer is invalid</b></font><br>'
             )
             invalid_input = True
 
         wkbtype = QgsWkbTypes.displayString(self.input_layer.wkbType())
         if wkbtype != "MultiPolygon":
-            self.update_facilities.dlg.msgbox.insertHtml(
+            self.update_facilities_plugin.dlg.msgbox.insertHtml(
                 '> <font color="red"><b>Error: input layer is {}, MultiPolygon required"</b></font><br>'.format(
                     wkbtype
                 )
@@ -54,7 +55,7 @@ class UpdateTempFacilities(object):
 
         crs = self.input_layer.sourceCrs().authid()
         if crs != "EPSG:2193":
-            self.update_facilities.dlg.msgbox.insertHtml(
+            self.update_facilities_plugin.dlg.msgbox.insertHtml(
                 '> <font color="red"><b>Error: input layer is {} epsg:2193 required</b></font><br>'.format(
                     crs
                 )
@@ -87,7 +88,7 @@ class UpdateTempFacilities(object):
 
         for column in required_columns:
             if column not in field_names:
-                self.update_facilities.dlg.msgbox.insertHtml(
+                self.update_facilities_plugin.dlg.msgbox.insertHtml(
                     '> <font color="red"><b>Error: missing {} column</b></font><br>'.format(
                         column
                     )
@@ -97,7 +98,9 @@ class UpdateTempFacilities(object):
         if invalid_input:
             return False
 
-        self.update_facilities.dlg.msgbox.insertPlainText("input facilities checked\n")
+        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+            "input facilities checked\n"
+        )
         return True
 
     def update_temp_facilities(self):
@@ -111,23 +114,24 @@ class UpdateTempFacilities(object):
             else:
                 return variable
 
-        self.update_facilities.dlg.msgbox.insertPlainText(
+        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
             "truncating temp facilities table\n"
         )
 
         sql = update_temp_facilities_table_sql.truncate_temp_facilities_table
-        self.update_facilities.dbconn.db_execute(sql, None)
+        self.update_facilities_plugin.dbconn.db_execute(sql, None)
 
-        self.update_facilities.dlg.msgbox.insertPlainText(
+        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
             "uploading to temp facilities table\n"
         )
         # repaint before lng process os user can see upto date messages
-        self.update_facilities.dlg.msgbox.repaint()
+        self.update_facilities_plugin.dlg.msgbox.repaint()
 
         sql = update_temp_facilities_table_sql.insert_temp_facilities
 
         # iterate through each feature and add to the temp facilities table
         count = 0
+        update_error = False
         for feature in self.input_layer.getFeatures():
 
             fid = catch_NULL(feature["fid"])
@@ -140,7 +144,16 @@ class UpdateTempFacilities(object):
             use_type = catch_NULL(feature["use_type"])
             use_subtype = catch_NULL(feature["use_subtype"])
             estimated_occupancy = catch_NULL(feature["estimated_occupancy"])
-            last_modified = catch_NULL(feature["last_modified"].toString("yyyyMMdd"))
+
+            last_modified_attr = feature["last_modified"]
+            if not last_modified_attr:
+                # add todays date in last modified
+
+                last_modified = datetime.today().strftime("%Y%m%d")
+
+            else:
+                last_modified = feature["last_modified"].toString("yyyyMMdd")
+
             change_action = catch_NULL(feature["change_action"])
             change_description = catch_NULL(feature["change_description"])
             feature_sql = catch_NULL(feature["sql"])
@@ -172,19 +185,30 @@ class UpdateTempFacilities(object):
                 new_source_occupancy,
             ]
 
-            fid_added = self.update_facilities.dbconn.select(sql, data)
+            fid_added = self.update_facilities_plugin.dbconn.select(sql, data)
             if not fid_added:
-                self.update_facilities.dlg.msgbox.insertPlainText(
+                self.update_facilities_plugin.dlg.msgbox.insertPlainText(
                     "failed to add feature fid {}\n".format(fid)
                 )
+                update_error = True
             else:
                 count += 1
             if count % 500 == 0:
-                self.update_facilities.dlg.msgbox.insertPlainText(
+                self.update_facilities_plugin.dlg.msgbox.insertPlainText(
                     "{} features have been added\n".format(count)
                 )
-                self.update_facilities.dlg.msgbox.repaint()
+                self.update_facilities_plugin.dlg.msgbox.repaint()
 
-        self.update_facilities.dlg.msgbox.insertPlainText(
-            "finished updating temp facilities table\n"
-        )
+        if update_error:
+            self.update_facilities_plugin.dbconn.conn.rollback()
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "\nfailed to update temp facilities table\n"
+                "please check errors in this window\n\n"
+            )
+
+        else:
+            self.update_facilities_plugin.dbconn.conn.commit()
+
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "\nfinished updating temp facilities table\n\n"
+            )

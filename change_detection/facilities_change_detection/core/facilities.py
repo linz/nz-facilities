@@ -207,7 +207,7 @@ class Facility(Source):
                 self.change_action = ChangeAction.UPDATE_ATTR
                 self.change_description = f"Attrs: {description}"
             self.sql = self._generate_update_sql(changed_attrs)
-            
+
 
     def _generate_update_sql(self, changed_attrs: dict[str, tuple[str, str]]) -> str | None:
         """
@@ -216,6 +216,8 @@ class Facility(Source):
         """
         sql = "UPDATE facilities.facilities SET "
         for attr, (old, new) in changed_attrs.items():
+            # replace apostrophies with '' for sql statement
+            new = new.replace("'", "''")
             match attr:
                 case "source_name":
                     sql += f"name='{new}',  source_name='{new}', "
@@ -224,7 +226,7 @@ class Facility(Source):
                 case "occupancy":
                     sql += f"estimated_occupancy='{new}', "
         sql += "last_modified=CURRENT_DATE "
-        sql += f"WHERE facility_id={self.facilities_id} AND source_facility_id={self.source_id};"
+        sql += f"WHERE facility_id={self.facilities_id} AND source_facility_id='{self.source_id}';"
         return sql
 
 
