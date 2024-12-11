@@ -18,6 +18,33 @@ class UpdateTempFacilities(object):
     def __init__(self, update_facilities_plugin):
         self.update_facilities_plugin = update_facilities_plugin
 
+    def run_update_temp_facilities(self):
+        """Uploads new facilities layer to the temp_facilities table in the database"""
+
+        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+            "\n--------------------\n\n"
+        )
+
+        connection_and_tables_correct = (
+            self.update_facilities_plugin.test_dbconn.run_test_dbconn()
+        )
+
+        if not connection_and_tables_correct:
+            message = (
+                "\nThe temp facilities table has not been updated.\n"
+                "The DB connection test failed.\n"
+                "Please fix errors in the facilites or temp facilities table.\n"
+            )
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(message)
+            return False
+
+        layer_correct = self.check_input_facilities_layer()
+
+        if not layer_correct:
+            return False
+
+        self.update_temp_facilities()
+
     def check_input_facilities_layer(self):
         """
         Checks input layer is valid, had correct geometry and crs, and correct fields
@@ -119,10 +146,10 @@ class UpdateTempFacilities(object):
         )
 
         sql = update_temp_facilities_table_sql.truncate_temp_facilities_table
-        self.update_facilities_plugin.dbconn.db_execute(sql, None)
+        self.update_facilities_plugin.dbconn.db_execute_without_commit(sql, None)
 
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "uploading to temp facilities table\n"
+            "uploading to temp facilities table\n\n"
         )
         # repaint before lng process os user can see upto date messages
         self.update_facilities_plugin.dlg.msgbox.repaint()
@@ -185,7 +212,9 @@ class UpdateTempFacilities(object):
                 new_source_occupancy,
             ]
 
-            fid_added = self.update_facilities_plugin.dbconn.select(sql, data)
+            fid_added = self.update_facilities_plugin.dbconn.db_execute_and_return_without_commit(
+                sql, data
+            )
             if not fid_added:
                 self.update_facilities_plugin.dlg.msgbox.insertPlainText(
                     "failed to add feature fid {}\n".format(fid)
@@ -195,20 +224,25 @@ class UpdateTempFacilities(object):
                 count += 1
             if count % 500 == 0:
                 self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-                    "{} features have been added\n".format(count)
+                    "-- {} features have been added\n".format(count)
                 )
                 self.update_facilities_plugin.dlg.msgbox.repaint()
 
         if update_error:
             self.update_facilities_plugin.dbconn.conn.rollback()
+            self.update_facilities_plugin.dlg.msgbox.insertHtml(
+                '<br><br>> <font color="red"><b>update failed</b></font><br>'
+            )
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-                "\nfailed to update temp facilities table\n"
-                "please check errors in this window\n\n"
+                "failed to update temp facilities table\n"
+                "please check errors in this window\n"
             )
 
         else:
             self.update_facilities_plugin.dbconn.conn.commit()
-
+            self.update_facilities_plugin.dlg.msgbox.insertHtml(
+                '<br><br>> <font color="green"><b>update successful</b></font><br>'
+            )
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-                "\nfinished updating temp facilities table\n\n"
+                "finished updating temp facilities table\n"
             )

@@ -33,9 +33,6 @@ def get_config_path():
         config.set("database", "user", "postgres")
         config.set("database", "password", "postgres")
 
-        config.add_section("key")
-        config.set("key", "name", "put_key_here")
-
         with open(config_file_path, "w") as configfile:
             config.write(configfile)
 

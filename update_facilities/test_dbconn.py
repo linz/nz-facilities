@@ -14,19 +14,38 @@ class TestDBConn(object):
     def __init__(self, update_facilities_plugin):
         self.update_facilities_plugin = update_facilities_plugin
 
+    def run_test_dbconn(self):
+        """Checks able to connect to the database and contains assumed schema"""
+
+        connection_created = self.check_conn()
+
+        if connection_created:
+            temp_facilities_table_correct = self.check_temp_facilities_table()
+
+            facilities_table_correct = self.check_facilities_table()
+            if not temp_facilities_table_correct or not facilities_table_correct:
+                self.update_facilities_plugin.dbconn = None
+                return False
+            else:
+                return True
+
+        else:
+            self.update_facilities_plugin.dbconn = None
+            return False
+
     def check_conn(self):
         """
         Retrieve the current db from the config and inits a connection
         """
 
-        self.dbconn = DBConnection(
+        self.update_facilities_plugin.dbconn = DBConnection(
             self.update_facilities_plugin.name,
             self.update_facilities_plugin.host,
             self.update_facilities_plugin.user,
             self.update_facilities_plugin.password,
         )
         try:
-            self.dbconn.connect()
+            self.update_facilities_plugin.dbconn.connect()
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
                 "database connection created\n"
             )
@@ -45,7 +64,9 @@ class TestDBConn(object):
         # check temp_facilities table exists
         sql = check_facilities_table_sql.check_facilities_table_exists
 
-        facilities_table_exits = self.dbconn.select(sql, None)[0][0]
+        facilities_table_exits = self.update_facilities_plugin.dbconn.select(sql, None)[
+            0
+        ][0]
 
         if facilities_table_exits:
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
@@ -60,7 +81,7 @@ class TestDBConn(object):
         # check facilities tabel has correct columns
         sql = check_facilities_table_sql.check_facilities_column_names
 
-        column_names = self.dbconn.select(sql, None)
+        column_names = self.update_facilities_plugin.dbconn.select(sql, None)
 
         required_columns = [
             ["facility_id"],
@@ -100,7 +121,9 @@ class TestDBConn(object):
         # check temp_facilities table exists
         sql = check_facilities_table_sql.check_temp_facilities_table_exists
 
-        facilities_table_exits = self.dbconn.select(sql, None)[0][0]
+        facilities_table_exits = self.update_facilities_plugin.dbconn.select(sql, None)[
+            0
+        ][0]
 
         if facilities_table_exits:
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
@@ -115,7 +138,7 @@ class TestDBConn(object):
         # check facilities tabel has correct columns
         sql = check_facilities_table_sql.check_temp_facilities_column_names
 
-        column_names = self.dbconn.select(sql, None)
+        column_names = self.update_facilities_plugin.dbconn.select(sql, None)
 
         required_columns = [
             ["fid"],

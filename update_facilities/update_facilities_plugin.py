@@ -82,6 +82,12 @@ class UpdateFacilitiesPlugin:
 
         self.config_file_path = get_config_path()
 
+        self.dbconn = None
+
+        self.test_dbconn = TestDBConn(self)
+        self.update_temp_facilities = UpdateTempFacilities(self)
+        self.update_facilities_table = UpdateFacilitiesTable(self)
+
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
         """Get the translation for a string using Qt translation API.
@@ -212,44 +218,3 @@ class UpdateFacilitiesPlugin:
 
         # Run the dialog event loop
         self.dlg.exec_()
-
-    def run_test_dbconn(self):
-        """Checks able to connect to the database and contains assumed schema"""
-        testdb = TestDBConn(self)
-        connection_created = testdb.check_conn()
-        if connection_created:
-            temp_facilities_table_correct = testdb.check_temp_facilities_table()
-
-            facilities_table_correct = testdb.check_facilities_table()
-            if not temp_facilities_table_correct or not facilities_table_correct:
-                testdb = None
-                return False
-            else:
-                return True
-
-        else:
-            testdb = None
-            return False
-
-    def run_update_temp_facilities(self):
-        """Uploads new facilities layer to the temp_facilities table in the database"""
-        update_temp_facilities = UpdateTempFacilities(self)
-
-        self.dbconn = DBConnection(self.name, self.host, self.user, self.password)
-        self.dbconn.connect()
-
-        layer_correct = update_temp_facilities.check_input_facilities_layer()
-
-        if not layer_correct:
-            return False
-
-        update_temp_facilities.update_temp_facilities()
-
-    def run_update_facilities_table(self):
-        """Updates facilities table using the temp_facilities table in the database"""
-        update_facilities_table = UpdateFacilitiesTable(self)
-
-        self.dbconn = DBConnection(self.name, self.host, self.user, self.password)
-        self.dbconn.connect()
-
-        update_facilities_table.update_facilities_table()

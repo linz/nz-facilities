@@ -29,31 +29,30 @@ class UpdateFacilitiesTable(object):
         self.update_facilities_plugin.dbconn.db_execute_without_commit(sql, data)
         self.update_facilities_plugin.dbconn.conn.commit()
 
-    def update_facilities_table(self):
-        """
-        Retrieve the current db from the config and inits a connection
-        """
-
-        def catch_NULL(variable):
-            if not variable:
-                return None
-            else:
-                return variable
+    def run_update_facilities_table(self):
+        """Updates facilities table using the temp_facilities table in the database"""
 
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "starting update of the facilities table\n"
+            "\n--------------------\n\n"
         )
 
-        db_correct = self.update_facilities_plugin.run_test_dbconn()
-        if not db_correct:
+        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+            "starting update of the facilities table\n\n"
+        )
+
+        # check connection and temp facilities table in db?
+        connection_and_tables_correct = (
+            self.update_facilities_plugin.test_dbconn.run_test_dbconn()
+        )
+
+        if not connection_and_tables_correct:
             message = (
                 "\nThe facilities table has not been updated.\n"
-                "Please fix errors in the facilites or temp facilities table\n"
+                "The DB connection test failed.\n"
+                "Please fix errors in the facilites or temp facilities table.\n"
             )
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(message)
             return False
-
-        self.update_facilities_plugin.dlg.msgbox.insertPlainText("\n")
 
         # check_temp_facilities_table
 
@@ -65,7 +64,7 @@ class UpdateFacilitiesTable(object):
         )
 
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\nrows count before update: {}\n\n".format(rows[0][0])
+            "\n\nrows count before update: {}\n\n\n".format(rows[0][0])
         )
 
         # iterate through temp facilities table and adjust row by row
@@ -414,12 +413,15 @@ class UpdateFacilitiesTable(object):
             )
         )
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\nrows count after update: {}\n\n".format(rows[0][0])
+            "\n\nrows count after update: {}\n\n".format(rows[0][0])
         )
 
         if update_error:
+            self.update_facilities_plugin.dlg.msgbox.insertHtml(
+                '> <font color="red"><b>update failed</b></font><br>'
+            )
             message = (
-                "\nThe facilities table has not been updated.\n"
+                "The facilities table has not been updated.\n"
                 "Please check errors listed in this window.\n"
                 "The error_description column of the \n"
                 "temp facilities table has been appended with \n"
@@ -428,7 +430,10 @@ class UpdateFacilitiesTable(object):
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(message)
             self.update_facilities_plugin.dbconn.conn.rollback()
         else:
-            message = "\nThe facilities table has successfully been updated.\n"
+            self.update_facilities_plugin.dlg.msgbox.insertHtml(
+                '> <font color="green"><b>update successful</b></font><br>'
+            )
+            message = "The facilities table has successfully been updated.\n"
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(message)
 
             self.update_facilities_plugin.dbconn.conn.commit()
