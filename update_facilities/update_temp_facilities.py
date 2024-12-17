@@ -21,6 +21,10 @@ class UpdateTempFacilities(object):
     def run_update_temp_facilities(self):
         """Uploads new facilities layer to the temp_facilities table in the database"""
 
+        self.update_facilities_plugin.facilities_logging.info(
+            "start run_update_temp_facilities"
+        )
+
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
             "\n--------------------\n\n"
         )
@@ -59,6 +63,10 @@ class UpdateTempFacilities(object):
         )
 
         if self.input_layer is None:
+            self.update_facilities_plugin.facilities_logging.error(
+                "No temp facilities input layer",
+            )
+
             self.update_facilities_plugin.dlg.msgbox.insertHtml(
                 '> <font color="red"><b>Error: no input layer</b></font><br>'
             )
@@ -66,6 +74,9 @@ class UpdateTempFacilities(object):
             return False
 
         if not self.input_layer.isValid():
+            self.update_facilities_plugin.facilities_logging.error(
+                "Temp facilities input layer is invalid",
+            )
             self.update_facilities_plugin.dlg.msgbox.insertHtml(
                 '> <font color="red"><b>Error: input layer is invalid</b></font><br>'
             )
@@ -73,6 +84,9 @@ class UpdateTempFacilities(object):
 
         wkbtype = QgsWkbTypes.displayString(self.input_layer.wkbType())
         if wkbtype != "MultiPolygon":
+            self.update_facilities_plugin.facilities_logging.error(
+                "input layer is {}, MultiPolygon required".format(wkbtype),
+            )
             self.update_facilities_plugin.dlg.msgbox.insertHtml(
                 '> <font color="red"><b>Error: input layer is {}, MultiPolygon required"</b></font><br>'.format(
                     wkbtype
@@ -82,8 +96,12 @@ class UpdateTempFacilities(object):
 
         crs = self.input_layer.sourceCrs().authid()
         if crs != "EPSG:2193":
+            self.update_facilities_plugin.facilities_logging.error(
+                "input layer is {}, epsg:2193 required".format(crs),
+            )
+
             self.update_facilities_plugin.dlg.msgbox.insertHtml(
-                '> <font color="red"><b>Error: input layer is {} epsg:2193 required</b></font><br>'.format(
+                '> <font color="red"><b>Error: input layer is {}, epsg:2193 required</b></font><br>'.format(
                     crs
                 )
             )
@@ -115,6 +133,9 @@ class UpdateTempFacilities(object):
 
         for column in required_columns:
             if column not in field_names:
+                self.update_facilities_plugin.facilities_logging.error(
+                    "missing {} column".format(column),
+                )
                 self.update_facilities_plugin.dlg.msgbox.insertHtml(
                     '> <font color="red"><b>Error: missing {} column</b></font><br>'.format(
                         column
@@ -215,7 +236,12 @@ class UpdateTempFacilities(object):
             fid_added = self.update_facilities_plugin.dbconn.db_execute_and_return_without_commit(
                 sql, data
             )
+
             if not fid_added:
+                self.update_facilities_plugin.facilities_logging.error(
+                    "failed to add feature fid {}".format(fid),
+                )
+
                 self.update_facilities_plugin.dlg.msgbox.insertPlainText(
                     "failed to add feature fid {}\n".format(fid)
                 )
@@ -239,6 +265,10 @@ class UpdateTempFacilities(object):
             )
 
         else:
+            self.update_facilities_plugin.facilities_logging.info(
+                "temp_facilities table updated, {} features inserted".format(count),
+            )
+
             self.update_facilities_plugin.dbconn.conn.commit()
             self.update_facilities_plugin.dlg.msgbox.insertHtml(
                 '<br><br>> <font color="green"><b>update successful</b></font><br>'

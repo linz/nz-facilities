@@ -78,15 +78,21 @@ class UpdateFacilitiesDialog(QtWidgets.QDialog, FORM_CLASS):
     @pyqtSlot()
     def on_btn_test_dbconn(self):
         self.msgbox.insertPlainText("\n--------------------\n\n")
+        self.update_facilities_plugin.task = "Test DBConn"
         self.update_facilities_plugin.test_dbconn.run_test_dbconn()
+        self.update_facilities_plugin.task = None
 
     @pyqtSlot()
     def on_btn_update_facilities_table(self):
+        self.update_facilities_plugin.task = "Update Facilities Table"
         self.update_facilities_plugin.update_facilities_table.run_update_facilities_table()
+        self.update_facilities_plugin.task = None
 
     @pyqtSlot()
     def on_btn_update_temp_facilities(self):
+        self.update_facilities_plugin.task = "Update Temp Facilities"
         self.update_facilities_plugin.update_temp_facilities.run_update_temp_facilities()
+        self.update_facilities_plugin.task = None
 
     @pyqtSlot()
     def on_pb_clear_message(self):

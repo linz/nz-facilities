@@ -17,9 +17,13 @@ class TestDBConn(object):
     def run_test_dbconn(self):
         """Checks able to connect to the database and contains assumed schema"""
 
+        self.update_facilities_plugin.facilities_logging.info("start run_test_dbconn")
+
         connection_created = self.check_conn()
 
         if connection_created:
+            self.update_facilities_plugin.facilities_logging.info("connection created")
+
             temp_facilities_table_correct = self.check_temp_facilities_table()
 
             facilities_table_correct = self.check_facilities_table()
@@ -73,13 +77,17 @@ class TestDBConn(object):
                 "facilities table exits\n"
             )
         else:
+            self.update_facilities_plugin.facilities_logging.error(
+                "No facilities table in the facilities schema"
+            )
+
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
                 "No facilities table in the facilities schema\n"
             )
             return False
 
         # check facilities tabel has correct columns
-        sql = check_facilities_table_sql.check_facilities_column_names
+        sql = check_facilities_table_sql.check_facilities_table_column_names
 
         column_names = self.update_facilities_plugin.dbconn.select(sql, None)
 
@@ -102,6 +110,10 @@ class TestDBConn(object):
         for column in required_columns:
             # row[0] as the first column of a single column table
             if column not in column_names:
+                self.update_facilities_plugin.facilities_logging.error(
+                    "Column '{}' missing from input".format(str(column[0])),
+                )
+
                 self.update_facilities_plugin.dlg.msgbox.insertHtml(
                     "column <font> <b>{}</b></font> missing from input<br>".format(
                         str(column[0])
@@ -130,13 +142,17 @@ class TestDBConn(object):
                 "temp facilities table exits\n"
             )
         else:
+            self.update_facilities_plugin.facilities_logging.error(
+                "Column '{}' missing from input".format(str(column[0])),
+            )
+
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
                 "No temp facilities table in the facilities schema\n"
             )
             return False
 
         # check facilities tabel has correct columns
-        sql = check_facilities_table_sql.check_temp_facilities_column_names
+        sql = check_facilities_table_sql.check_temp_facilities_table_column_names
 
         column_names = self.update_facilities_plugin.dbconn.select(sql, None)
 
@@ -167,6 +183,10 @@ class TestDBConn(object):
         for column in required_columns:
             # row[0] as the first column of a single column table
             if column not in column_names:
+                self.update_facilities_plugin.facilities_logging.error(
+                    "Column '{}' missing from input".format(str(column[0])),
+                )
+
                 self.update_facilities_plugin.dlg.msgbox.insertHtml(
                     "column <font> <b>{}</b></font> missing from input<br>".format(
                         str(column[0])

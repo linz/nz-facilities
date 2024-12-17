@@ -33,6 +33,7 @@ import os.path
 
 from update_facilities.utilities.config import get_config_path, read_config
 from update_facilities.utilities.dbconn import DBConnection
+from update_facilities.utilities.facilities_logging import FacilitiesLogging
 from update_facilities.test_dbconn import TestDBConn
 from update_facilities.update_facilities_table import UpdateFacilitiesTable
 from update_facilities.update_temp_facilities import UpdateTempFacilities
@@ -87,6 +88,8 @@ class UpdateFacilitiesPlugin:
         self.test_dbconn = TestDBConn(self)
         self.update_temp_facilities = UpdateTempFacilities(self)
         self.update_facilities_table = UpdateFacilitiesTable(self)
+
+        self.task = None
 
     # noinspection PyMethodMayBeStatic
     def tr(self, message):
@@ -215,6 +218,8 @@ class UpdateFacilitiesPlugin:
         self.name, self.host, self.user, self.password = read_config(
             self.config_file_path, self.parser
         )
+
+        self.facilities_logging = FacilitiesLogging(self)
 
         # Run the dialog event loop
         self.dlg.exec_()
