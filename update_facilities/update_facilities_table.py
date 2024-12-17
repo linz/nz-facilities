@@ -488,14 +488,6 @@ class UpdateFacilitiesTable(object):
             "{} feature unchanged\n".format(no_change)
         )
 
-        self.update_facilities_plugin.facilities_logging.insert_facilities_result_log(
-            added,
-            deleted,
-            geom_changed,
-            attributes_changed,
-            geom_and_attributes_changed,
-        )
-
         sql = update_facilities_table_sql.facilities_table_row_count
         rows = (
             self.update_facilities_plugin.dbconn.db_execute_and_return_without_commit(
@@ -523,6 +515,14 @@ class UpdateFacilitiesTable(object):
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(message)
             self.update_facilities_plugin.dbconn.conn.rollback()
         else:
+            self.update_facilities_plugin.facilities_logging.insert_facilities_result_log(
+                added,
+                deleted,
+                geom_changed,
+                attributes_changed,
+                geom_and_attributes_changed,
+            )
+
             self.update_facilities_plugin.facilities_logging.info(
                 "facilities table updated, now {} features in the facilities table".format(
                     rows[0][0]
