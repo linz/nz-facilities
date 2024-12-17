@@ -115,3 +115,28 @@ class FacilitiesLogging(object):
         if log_added_count != 1:
             msg = "Failed to update log\n"
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(msg)
+
+    def insert_facilities_result_log(
+        self, added, removed, geom_updated, attr_updated, geom_attr_updated
+    ):
+        sql = facilities_logging_sql.insert_facilities_result_log
+        data = (
+            self.update_facilities_plugin.user,
+            added,
+            removed,
+            geom_updated,
+            attr_updated,
+            geom_attr_updated,
+        )
+        log_added_count = self.dbconn.select(sql, data)[0][0]
+        if log_added_count != 1:
+            msg = "Failed to update results log\n"
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(msg)
+
+
+insert_facilities_result_log = """
+with a as (INSERT INTO facilities.facilities_result_logging(
+	"user", added, removed, geom_updated, attr_updated, geom_attr_updated)
+	VALUES (%s, %s, %s, %s, %s, %s) returning 1)
+select count(*) from a;
+"""
