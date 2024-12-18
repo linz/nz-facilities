@@ -7,7 +7,7 @@ import platform
 from qgis.core import QgsApplication
 
 
-def get_config_path():
+def get_config_path() -> str | os.PathLike:
     """search for config file, if it doesn't exist create"""
     config_file_path = os.path.join(
         QgsApplication.qgisSettingsDirPath(), "update_facilities", "config.ini"
@@ -39,7 +39,9 @@ def get_config_path():
     return config_file_path
 
 
-def read_config(config_file_path, parser):
+def read_config(
+    config_file_path: str | os.PathLike, parser: configparser.ConfigParser
+) -> tuple[str, str, str, str]:
 
     with open(config_file_path, "r") as f:
         parser.read_file(f)

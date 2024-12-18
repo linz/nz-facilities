@@ -14,7 +14,7 @@ class UpdateFacilitiesTable(object):
         self.update_facilities_plugin = update_facilities_plugin
 
     def update_temp_facilities_error_description(
-        self, msg_box_message, error_description, fid
+        self, msg_box_message: str, error_description: str, fid: int
     ):
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(msg_box_message)
 
@@ -29,7 +29,7 @@ class UpdateFacilitiesTable(object):
         self.update_facilities_plugin.dbconn.db_execute_without_commit(sql, data)
         self.update_facilities_plugin.dbconn.conn.commit()
 
-    def run_update_facilities_table(self):
+    def run_update_facilities_table(self) -> bool:
         """Updates facilities table using the temp_facilities table in the database"""
         self.update_facilities_plugin.facilities_logging.info(
             "start run_update_facilities_table"

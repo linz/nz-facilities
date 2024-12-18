@@ -18,7 +18,7 @@ class UpdateTempFacilities(object):
     def __init__(self, update_facilities_plugin):
         self.update_facilities_plugin = update_facilities_plugin
 
-    def run_update_temp_facilities(self):
+    def run_update_temp_facilities(self) -> bool:
         """Uploads new facilities layer to the temp_facilities table in the database"""
 
         self.update_facilities_plugin.facilities_logging.info(

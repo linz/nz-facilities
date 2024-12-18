@@ -46,7 +46,7 @@ class FacilitiesLogging(object):
 
         # test logging table exists
 
-    def info(self, comment):
+    def info(self, comment: str):
         "log an info level log - Confirmation that things are working as expected."
         sql = facilities_logging_sql.insert_facilities_task_log
         data = (
@@ -62,7 +62,7 @@ class FacilitiesLogging(object):
             msg = "Failed to update log\n"
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(msg)
 
-    def warning(self, comment):
+    def warning(self, comment: str):
         """
         log a warning level log - An indication that something unexpected happened,
         or that a problem might occur in the near future. The software is still working as expected.
@@ -80,7 +80,7 @@ class FacilitiesLogging(object):
             msg = "Failed to update log\n"
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(msg)
 
-    def error(self, comment):
+    def error(self, comment: str):
         """
         log an error level log - Due to a more serious problem,
         the software has not been able to perform some function.
@@ -98,7 +98,7 @@ class FacilitiesLogging(object):
             msg = "Failed to update log\n"
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(msg)
 
-    def critical(self, comment):
+    def critical(self, comment: str):
         """
         log a critical level log - A serious error, indicating that the
         program itself may be unable to continue running.

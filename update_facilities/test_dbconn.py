@@ -14,7 +14,7 @@ class TestDBConn(object):
     def __init__(self, update_facilities_plugin):
         self.update_facilities_plugin = update_facilities_plugin
 
-    def run_test_dbconn(self):
+    def run_test_dbconn(self) -> bool:
         """Checks able to connect to the database and contains assumed schema"""
 
         self.update_facilities_plugin.facilities_logging.info("start run_test_dbconn")
@@ -37,7 +37,7 @@ class TestDBConn(object):
             self.update_facilities_plugin.dbconn = None
             return False
 
-    def check_conn(self):
+    def check_conn(self) -> bool:
         """
         Retrieve the current db from the config and inits a connection
         """
@@ -60,7 +60,7 @@ class TestDBConn(object):
             )
             return False
 
-    def check_facilities_table(self):
+    def check_facilities_table(self) -> bool:
         """
         Check the facilities tables exists and contains the required columns
         """
@@ -125,7 +125,7 @@ class TestDBConn(object):
         else:
             return True
 
-    def check_temp_facilities_table(self):
+    def check_temp_facilities_table(self) -> bool:
         """
         Check the temp facilities tables exists and contains the required columns
         """

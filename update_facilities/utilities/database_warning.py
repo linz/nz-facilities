@@ -1,7 +1,7 @@
 from qgis.utils import iface
 
 
-def database_warning(warn_title, warn_message, warn_level):
+def database_warning(warn_title: str, warn_message: str, warn_level: str):
     """
     push message to messageBar
 

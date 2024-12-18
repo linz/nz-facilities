@@ -9,14 +9,14 @@ __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file
 
 
 class DBConnection:
-    def __init__(self, dbname, host, user, password):
+    def __init__(self, dbname: str, host: str, user: str, password: str):
         self.dbname = dbname
         self.host = host
         self.user = user
         self.password = password
         self.conn = None
 
-    def connect(self):
+    def connect(self) -> bool:
         """Connect to DB"""
         try:
             self.conn = psycopg2.connect(
@@ -29,7 +29,9 @@ class DBConnection:
             self.conn = None
             raise
 
-    def db_execute(self, sql, data=None):
+    def db_execute(
+        self, sql: str, data: tuple[any, ...] = None
+    ) -> psycopg2.extensions.cursor | None:
         """
         Execute an sql statement
 
@@ -62,7 +64,7 @@ class DBConnection:
 
         return cursor
 
-    def execute(self, sql, data=None):
+    def execute(self, sql: str, data: tuple[any, ...] = None):
         """Execute an update or insert statement with no return
 
         @param  sql:    sql statement
@@ -78,14 +80,14 @@ class DBConnection:
             cursor.close()
         return None
 
-    def execute_sql_from_file(self, sql_file):
+    def execute_sql_from_file(self, sql_file: str):
         sql_path = os.path.join(__location__, "..", "sql", sql_file)
         with open(sql_path) as f:
             sql = f.read()
         f.closed
         self.execute(sql)
 
-    def copy_from_csv(self, csv_path, table):
+    def copy_from_csv(self, csv_path: str | os.PathLike, table: str):
         copy_sql = """
             COPY {} FROM stdin WITH CSV HEADER
             DELIMITER as ','
@@ -103,7 +105,7 @@ class DBConnection:
                 return None
             cursor.close()
 
-    def select(self, sql, data=None):
+    def select(self, sql: str, data: tuple[any, ...] = None) -> list[list[any]] | None:
         """Execute a Select statement and return results
 
         @param  sql:    SQL statement (must be Select)
@@ -126,7 +128,9 @@ class DBConnection:
                 cursor.close()
         return None
 
-    def db_execute_and_return_without_commit(self, sql, data=None):
+    def db_execute_and_return_without_commit(
+        self, sql: str, data: tuple[any, ...] = None
+    ) -> list[list[any]] | None:
         """Execute, return result, but do not commit
 
         @param  sql:    sql statement
@@ -157,7 +161,7 @@ class DBConnection:
             self.conn.rollback()
             raise error
 
-    def db_execute_without_commit(self, sql, data=None):
+    def db_execute_without_commit(self, sql: str, data: tuple[any, ...] = None):
         """Execute but do not commit
 
         @param  sql:    sql statement

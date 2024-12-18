@@ -25,11 +25,13 @@ import configparser
 
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QWidget
 
 # Import the code for the dialog
 from .update_facilities_dialog import UpdateFacilitiesDialog
 import os.path
+
+from typing import Callable
 
 from update_facilities.utilities.config import get_config_path, read_config
 from update_facilities.utilities.dbconn import DBConnection
@@ -92,7 +94,7 @@ class UpdateFacilitiesPlugin:
         self.task = None
 
     # noinspection PyMethodMayBeStatic
-    def tr(self, message):
+    def tr(self, message: str):
         """Get the translation for a string using Qt translation API.
 
         We implement this ourselves since we do not inherit QObject.
@@ -108,16 +110,17 @@ class UpdateFacilitiesPlugin:
 
     def add_action(
         self,
-        icon_path,
-        text,
-        callback,
-        enabled_flag=True,
-        add_to_menu=True,
-        add_to_toolbar=True,
-        status_tip=None,
+        icon_path: str | os.PathLike,
+        text: str,
+        callback: Callable,
+        enabled_flag: bool = True,
+        add_to_menu: bool = True,
+        add_to_toolbar: bool = True,
+        status_tip: str = None,
         whats_this=None,
-        parent=None,
-    ):
+        parent: QWidget = None,
+    ) -> QAction:
+
         """Add a toolbar icon to the toolbar.
 
         :param icon_path: Path to the icon for this action. Can be a resource
