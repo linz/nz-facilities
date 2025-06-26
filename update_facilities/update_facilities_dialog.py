@@ -69,6 +69,10 @@ class UpdateFacilitiesDialog(QtWidgets.QDialog, FORM_CLASS):
             self.on_btn_update_facilities_table
         )
 
+        self.btn_update_lds_facilities_table.clicked.connect(
+            self.on_btn_update_lds_facilities_table
+        )
+
         icon_path = os.path.join(__location__, "media", "clear_message_icon.svg")
         self.pb_clear_message.setIcon(QIcon(icon_path))
         self.pb_clear_message.setToolTip("Clears the message box")
@@ -86,6 +90,12 @@ class UpdateFacilitiesDialog(QtWidgets.QDialog, FORM_CLASS):
     def on_btn_update_facilities_table(self):
         self.update_facilities_plugin.task = "Update Facilities Table"
         self.update_facilities_plugin.update_facilities_table.run_update_facilities_table()
+        self.update_facilities_plugin.task = None
+
+    @pyqtSlot()
+    def on_btn_update_lds_facilities_table(self):
+        self.update_facilities_plugin.task = "Update LDS Facilities Table"
+        self.update_facilities_plugin.update_lds_facilities_table.run_update_lds_facilities_table()
         self.update_facilities_plugin.task = None
 
     @pyqtSlot()

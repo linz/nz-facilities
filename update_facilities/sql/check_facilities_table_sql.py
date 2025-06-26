@@ -27,6 +27,20 @@ SELECT EXISTS (SELECT *
                  AND  TABLE_NAME = 'facilities')
 """
 
+check_lds_facilities_table_column_names = """
+SELECT column_name
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'facilities_lds'
+AND TABLE_NAME = N'nz_facilities';
+"""
+
+check_lds_facilities_table_exists = """
+SELECT EXISTS (SELECT *
+                 FROM INFORMATION_SCHEMA.TABLES
+                 WHERE TABLE_SCHEMA = 'facilities_lds'
+                 AND  TABLE_NAME = 'nz_facilities')
+"""
+
 check_temp_facilities_table_column_names = """
 SELECT column_name
 FROM INFORMATION_SCHEMA.COLUMNS

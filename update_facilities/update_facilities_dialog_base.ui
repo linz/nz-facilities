@@ -75,6 +75,29 @@
     </widget>
    </item>
    <item>
+    <spacer name="horizontalSpacer_3">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>379</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item>
+    <widget class="QPushButton" name="btn_update_lds_facilities_table">
+     <property name="toolTip">
+      <string>update the LDS facilities table using the facilities table</string>
+     </property>
+     <property name="text">
+      <string>Update LDS Facilities Table</string>
+     </property>
+    </widget>
+   </item>
+   <item>
     <widget class="QTextEdit" name="msgbox">
      <property name="enabled">
       <bool>true</bool>

@@ -38,6 +38,7 @@ from update_facilities.utilities.dbconn import DBConnection
 from update_facilities.utilities.facilities_logging import FacilitiesLogging
 from update_facilities.test_dbconn import TestDBConn
 from update_facilities.update_facilities_table import UpdateFacilitiesTable
+from update_facilities.update_lds_facilities_table import UpdateLDSFacilitiesTable
 from update_facilities.update_temp_facilities import UpdateTempFacilities
 
 __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
@@ -88,6 +89,7 @@ class UpdateFacilitiesPlugin:
         self.dbconn = None
 
         self.test_dbconn = TestDBConn(self)
+        self.update_lds_facilities_table = UpdateLDSFacilitiesTable(self)
         self.update_temp_facilities = UpdateTempFacilities(self)
         self.update_facilities_table = UpdateFacilitiesTable(self)
 

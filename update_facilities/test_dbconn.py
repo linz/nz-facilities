@@ -27,7 +27,14 @@ class TestDBConn(object):
             temp_facilities_table_correct = self.check_temp_facilities_table()
 
             facilities_table_correct = self.check_facilities_table()
-            if not temp_facilities_table_correct or not facilities_table_correct:
+
+            lds_facilities_table_correct = self.check_lds_facilities_table()
+
+            if (
+                not temp_facilities_table_correct
+                or not facilities_table_correct
+                or not lds_facilities_table_correct
+            ):
                 self.update_facilities_plugin.dbconn = None
                 return False
             else:
@@ -116,6 +123,70 @@ class TestDBConn(object):
 
                 self.update_facilities_plugin.dlg.msgbox.insertHtml(
                     "column <font> <b>{}</b></font> missing from input<br>".format(
+                        str(column[0])
+                    )
+                )
+                missing_column = True
+        if missing_column:
+            return False
+        else:
+            return True
+
+    def check_lds_facilities_table(self) -> bool:
+        """
+        Check the nz_facilities tables in the facilities_lds schema exists
+        and contains the required columns
+        """
+
+        # check temp_facilities table exists
+        sql = check_facilities_table_sql.check_lds_facilities_table_exists
+
+        nz_facilities_table_exits = self.update_facilities_plugin.dbconn.select(
+            sql, None
+        )[0][0]
+
+        if nz_facilities_table_exits:
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "nz_facilities table exits\n"
+            )
+        else:
+            self.update_facilities_plugin.facilities_logging.error(
+                "No nz_facilities table in the facilities_lds schema"
+            )
+
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "No nz_facilities table in the facilities_lds schema\n"
+            )
+            return False
+
+        # check facilities tabel has correct columns
+        sql = check_facilities_table_sql.check_lds_facilities_table_column_names
+
+        column_names = self.update_facilities_plugin.dbconn.select(sql, None)
+
+        required_columns = [
+            ["facility_id"],
+            ["source_facility_id"],
+            ["name"],
+            ["source_name"],
+            ["use"],
+            ["use_type"],
+            ["use_subtype"],
+            ["estimated_occupancy"],
+            ["last_modified"],
+            ["shape"],
+        ]
+
+        missing_column = False
+        for column in required_columns:
+            # row[0] as the first column of a single column table
+            if column not in column_names:
+                self.update_facilities_plugin.facilities_logging.error(
+                    "Column '{}' missing from nz_facilities".format(str(column[0])),
+                )
+
+                self.update_facilities_plugin.dlg.msgbox.insertHtml(
+                    "column <font> <b>{}</b></font> missing from nz_facilities<br>".format(
                         str(column[0])
                     )
                 )
