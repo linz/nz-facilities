@@ -105,7 +105,7 @@ class UpdateLDSFacilitiesTable(object):
         )
 
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\n\nrow count before update: {}\n\n\n".format(rows[0][0])
+            "\nrow count before update: {}\n".format(rows[0][0])
         )
 
         tables_duplicated = self.check_tables_duplicated()

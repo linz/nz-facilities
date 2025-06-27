@@ -17,11 +17,12 @@ class TestDBConn(object):
     def run_test_dbconn(self) -> bool:
         """Checks able to connect to the database and contains assumed schema"""
 
-        self.update_facilities_plugin.facilities_logging.info("start run_test_dbconn")
+        # self.update_facilities_plugin.facilities_logging.info("start run_test_dbconn")
 
         connection_created = self.check_conn()
 
         if connection_created:
+            self.update_facilities_plugin.facilities_logging.info("start run_test_dbconn")
             self.update_facilities_plugin.facilities_logging.info("connection created")
 
             temp_facilities_table_correct = self.check_temp_facilities_table()

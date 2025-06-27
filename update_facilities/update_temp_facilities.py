@@ -271,7 +271,7 @@ class UpdateTempFacilities(object):
 
             self.update_facilities_plugin.dbconn.conn.commit()
             self.update_facilities_plugin.dlg.msgbox.insertHtml(
-                '<br><br>> <font color="green"><b>update successful</b></font><br>'
+                '<br>> <font color="green"><b>update successful</b></font><br>'
             )
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
                 "finished updating temp facilities table\n"

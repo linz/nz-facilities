@@ -71,7 +71,7 @@ class UpdateFacilitiesTable(object):
         )
 
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\n\nrow count before update: {}\n\n\n".format(rows[0][0])
+            "\nrow count before update: {}\n\n".format(rows[0][0])
         )
 
         # iterate through temp facilities table and adjust row by row
@@ -466,7 +466,7 @@ class UpdateFacilitiesTable(object):
                 update_error = True
 
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\n\n{} features added\n".format(added)
+            "\n{} features added\n".format(added)
         )
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
             "{} features deleted\n".format(deleted)
@@ -495,7 +495,7 @@ class UpdateFacilitiesTable(object):
             )
         )
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\n\nrows count after update: {}\n\n".format(rows[0][0])
+            "\nrows count after update: {}\n\n".format(rows[0][0])
         )
 
         if update_error:
