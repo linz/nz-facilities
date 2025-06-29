@@ -58,6 +58,25 @@ class UpdateFacilitiesTable(object):
             return False
 
         # check_temp_facilities_table
+        # add in count of expected change which should be made
+        sql = update_facilities_table_sql.select_temp_facilities_change_count
+        rows = (
+            self.update_facilities_plugin.dbconn.db_execute_and_return_without_commit(
+                sql
+            )
+        )
+
+        rows.sort()
+        message = '\nExpected changes:\n'
+
+        change_dic = { "add" : "adding", "remove" :"removing", "update_geom":"updating the geometry of", "update_attr":"updating the geometry of", "update_geom_attr":"updating the geometry and attributes of", "no_change":"not changing"}
+
+        for change_type, change_count in rows:
+            # print(change_type, change_count)
+            change_text = change_dic[change_type]
+            message += "{} {} features\n".format(change_text, change_count)
+
+        self.update_facilities_plugin.dlg.msgbox.insertPlainText(message)
 
         sql = update_facilities_table_sql.facilities_table_row_count
         rows = (
@@ -465,28 +484,29 @@ class UpdateFacilitiesTable(object):
                 )
                 update_error = True
 
-        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\n{} features added\n".format(added)
-        )
-        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "{} features deleted\n".format(deleted)
-        )
-        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "{} geometries modified\n".format(geom_changed)
-        )
-        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "{} attributes changed\n".format(attributes_changed)
-        )
-
-        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "{} features had both geometries and attributes changed\n".format(
-                geom_and_attributes_changed
+        if not update_error:
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "\n{} features added\n".format(added)
             )
-        )
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "{} features deleted\n".format(deleted)
+            )
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "{} geometries modified\n".format(geom_changed)
+            )
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "{} attributes changed\n".format(attributes_changed)
+            )
 
-        self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "{} feature unchanged\n".format(no_change)
-        )
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "{} features had both geometries and attributes changed\n".format(
+                    geom_and_attributes_changed
+                )
+            )
+
+            self.update_facilities_plugin.dlg.msgbox.insertPlainText(
+                "{} feature unchanged\n".format(no_change)
+            )
 
         sql = update_facilities_table_sql.facilities_table_row_count
         rows = (
