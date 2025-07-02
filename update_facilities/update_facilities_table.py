@@ -198,7 +198,7 @@ class UpdateFacilitiesTable(object):
             )
         )
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\nrows count after update: {}\n\n".format(rows[0][0])
+            "\nfacilities table row count after update: {}\n\n".format(rows[0][0])
         )
 
         if self.update_error:
@@ -410,7 +410,7 @@ class UpdateFacilitiesTable(object):
         )
 
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\nrow count before update: {}\n\n".format(rows[0][0])
+            "\nfacilities table row count before update: {}\n\n".format(rows[0][0])
         )
 
     def remove_facility(self):
