@@ -29,7 +29,7 @@ SELECT COUNT(*)
 FROM facilities.facilities t1
   JOIN facilities.facilities t2
     ON (t1.source_facility_id,t1.name,
-t1.source_name) is not distinct from (t2.source_facility_id,t2.name,
+t1.source_name ) is not distinct from (t2.source_facility_id,t2.name,
 t2.source_name)
 where t1.facility_id = %s;
 """
@@ -141,6 +141,12 @@ SELECT COUNT(*)
 FROM facilities.facilities
 WHERE
 ST_AsText(shape) is not distinct from %s
+"""
+
+select_facilities_with_overlapping_geom_count = """
+select COUNT(*)
+FROM facilities.facilities
+WHERE ST_Overlaps(shape, ST_GeomFromText(%s, 2193));
 """
 
 select_geom = """

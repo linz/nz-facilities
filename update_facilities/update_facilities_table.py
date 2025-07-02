@@ -126,7 +126,9 @@ class UpdateFacilitiesTable(object):
 
                     no_duplicates = self.add_facility_duplicate_check()
 
-                    if not no_duplicates:
+                    no_overlaps = self.check_overlapping_geom()
+
+                    if no_duplicates and no_overlaps:
                         added += 1
 
             elif self.change_action == "remove":
@@ -137,8 +139,9 @@ class UpdateFacilitiesTable(object):
 
             elif self.change_action == "update_geom":
                 successfully_updated_geom = self.update_geom()
+                no_overlaps = self.check_overlapping_geom()
 
-                if successfully_updated_geom:
+                if successfully_updated_geom and no_overlaps:
                     geom_changed += 1
 
             elif self.change_action == "update_attr":
@@ -149,8 +152,9 @@ class UpdateFacilitiesTable(object):
 
             elif self.change_action == "update_geom_attr":
                 successfully_updated_geom_attr = self.update_geom_attr()
+                no_overlaps = self.check_overlapping_geom()
 
-                if successfully_updated_geom_attr:
+                if successfully_updated_geom_attr and no_overlaps:
                     # if went through modified attributes step and the modified geom step with no errors
                     geom_and_attributes_changed += 1
 
@@ -412,6 +416,54 @@ class UpdateFacilitiesTable(object):
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
             "\nfacilities table row count before update: {}\n\n".format(rows[0][0])
         )
+
+    def check_overlapping_geom(self):
+        # check new geometry does not overlap existing geometries
+        sql = update_facilities_table_sql.select_facilities_with_overlapping_geom_count
+        data = [self.shape_wkt,]
+
+        overlapping_geom_row_count = (
+            self.update_facilities_plugin.dbconn.db_execute_and_return_without_commit(
+                sql, data
+            )
+        ) [0][0]
+
+        if overlapping_geom_row_count != 0:
+            change_type = None
+            if self.change_action == 'add':
+                change_type = 'add new'
+                id_text = 'source_facility_id'
+                id_value = self.source_facility_id
+                msg_box_id_text = 'Source Facility ID'
+                msg_box_change = 'add'
+            elif self.change_action in ('update_geom', 'update_geom_attr'):
+                 change_type = 'modify'
+                 id_text = 'facility_id'
+                 id_value = self.facility_id
+                 msg_box_id_text = 'Facility ID'
+                 msg_box_change = 'modify'
+            log_msg = (
+                "failed to {} facility with {}: {},"
+                " {} duplicate attributes.".format(
+                    change_type, id_text, id_value, overlapping_geom_row_count
+                )
+            )
+
+            self.update_facilities_plugin.facilities_logging.error(log_msg)
+
+            self.update_error = True
+
+            msg_box_message = "{} {}: Failed to {}, overlapping geoms\n".format(msg_box_id_text, id_value, msg_box_change)
+
+            error_description = "Failed to {} facility, overlapping geoms. ".format(change_type)
+
+            self.update_temp_facilities_error_description(
+                msg_box_message, error_description, self.fid
+            )
+
+            return False
+        else:
+            return True
 
     def remove_facility(self):
 
