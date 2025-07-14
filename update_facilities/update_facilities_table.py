@@ -41,7 +41,7 @@ class UpdateFacilitiesTable(object):
             return False
 
         # check_temp_facilities_table
-        self.check_and_report_temp_facilities_table()
+        row_count_before = self.check_and_report_temp_facilities_table()
 
         self.clear_temp_table_error_description()
 
@@ -57,7 +57,7 @@ class UpdateFacilitiesTable(object):
 
         self.update_error = False
 
-        no_change = 0
+        unchanged = 0
         added = 0
         deleted = 0
         geom_changed = 0
@@ -148,7 +148,7 @@ class UpdateFacilitiesTable(object):
 
             elif not self.change_action:
 
-                no_change += 1
+                unchanged += 1
 
             else:
                 msg_box_message = "Facility ID {}: Change action '{}' not valid".format(self.facility_id, self.change_action)
@@ -182,7 +182,7 @@ class UpdateFacilitiesTable(object):
             )
 
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-                "{} feature unchanged\n".format(no_change)
+                "{} feature unchanged\n".format(unchanged)
             )
 
         sql = update_facilities_table_sql.facilities_table_row_count
@@ -191,8 +191,9 @@ class UpdateFacilitiesTable(object):
                 sql
             )
         )
+        row_count_after = rows[0][0]
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\nfacilities table row count after update: {}\n\n".format(rows[0][0])
+            "\nfacilities table row count after update: {}\n\n".format(row_count_after)
         )
 
         if self.update_error:
@@ -218,6 +219,9 @@ class UpdateFacilitiesTable(object):
                 geom_changed,
                 attributes_changed,
                 geom_and_attributes_changed,
+                unchanged,
+                row_count_before,
+                row_count_after
             )
 
             self.update_facilities_plugin.facilities_logging.info(
@@ -383,7 +387,7 @@ class UpdateFacilitiesTable(object):
         rows.sort()
         message = '\nExpected changes:\n'
 
-        change_dic = { "add" : "adding", "remove" :"removing", "update_geom":"updating the geometry of", "update_attr":"updating the attributes of", "update_geom_attr":"updating the geometry and attributes of", "no_change":"not changing"}
+        change_dic = { "add" : "adding", "remove" :"removing", "update_geom":"updating the geometry of", "update_attr":"updating the attributes of", "update_geom_attr":"updating the geometry and attributes of", "unchanged":"not changing"}
 
         for change_type, change_count in rows:
             # print(change_type, change_count)
@@ -403,9 +407,12 @@ class UpdateFacilitiesTable(object):
             "row count before update: {}".format(rows[0][0]),
         )
 
+        row_count_before = rows[0][0]
         self.update_facilities_plugin.dlg.msgbox.insertPlainText(
-            "\nfacilities table row count before update: {}\n\n".format(rows[0][0])
+            "\nfacilities table row count before update: {}\n\n".format(row_count_before)
         )
+
+        return row_count_before
 
     def check_overlapping_geom(self):
         # check new geometry does not overlap existing geometries

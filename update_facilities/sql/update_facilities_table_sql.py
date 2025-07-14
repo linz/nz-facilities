@@ -128,7 +128,7 @@ ST_AsText(shape) is not distinct from %s
 select_facilities_with_overlapping_geom_count = """
 select COUNT(*)
 FROM facilities.facilities
-WHERE ST_Overlaps(shape, ST_GeomFromText(%s, 2193));
+WHERE ST_Overlaps(ST_SnapToGrid(shape, 0.1), ST_SnapToGrid(ST_GeomFromText(%s, 2193), 0.1));
 """
 
 select_geom = """

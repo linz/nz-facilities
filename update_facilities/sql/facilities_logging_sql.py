@@ -10,7 +10,8 @@ select count(*) from a;
 
 insert_facilities_result_log = """
 with a as (INSERT INTO facilities.facilities_result_logging(
-	"user", added, removed, geom_updated, attr_updated, geom_attr_updated)
-	VALUES (%s, %s, %s, %s, %s, %s) returning 1)
+	"user", added, removed, geom_updated, attr_updated, geom_attr_updated,
+	unchanged, row_count_before, row_count_after)
+	VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) returning 1)
 select count(*) from a;
 """

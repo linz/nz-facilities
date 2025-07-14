@@ -33,7 +33,10 @@ CREATE TABLE facilities.facilities_result_logging(
     removed integer DEFAULT 0,
     geom_updated integer DEFAULT 0,
     attr_updated integer DEFAULT 0,
-    geom_attr_updated integer DEFAULT 0
+    geom_attr_updated integer DEFAULT 0,
+    unchanged integer DEFAULT 0,
+    row_count_before integer DEFAULT 0,
+    row_count_after integer DEFAULT 0,
 );
 
 COMMENT ON TABLE facilities.facilities_result_logging IS 'Stores the log of the results of the update facilities table';
@@ -54,5 +57,11 @@ COMMENT ON COLUMN facilities.facilities_result_logging.attr_updated IS
 'Count of facilities where the attributes have been modified.';
 COMMENT ON COLUMN facilities.facilities_result_logging.geom_attr_updated IS
 'Count of facilities where the geometry and attributes have been modified.';
+COMMENT ON COLUMN facilities.facilities_result_logging.unchanged IS
+'Count of facilities which were not modified.';
+COMMENT ON COLUMN facilities.facilities_result_logging.row_count_before IS
+'Count of facilities in the facilites table before the update.';
+COMMENT ON COLUMN facilities.facilities_result_logging.row_count_after IS
+'Count of facilities in the facilites table after the update.';
 
 COMMIT;

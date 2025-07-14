@@ -123,6 +123,9 @@ class FacilitiesLogging(object):
         geom_updated: int,
         attr_updated: int,
         geom_attr_updated: int,
+        unchanged: int,
+        row_count_before: int,
+        row_count_after: int
     ):
         sql = facilities_logging_sql.insert_facilities_result_log
         data = (
@@ -132,6 +135,10 @@ class FacilitiesLogging(object):
             geom_updated,
             attr_updated,
             geom_attr_updated,
+            unchanged,
+            row_count_before,
+            row_count_after
+
         )
         log_added_count = self.dbconn.select(sql, data)[0][0]
         if log_added_count != 1:

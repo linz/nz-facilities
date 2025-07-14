@@ -44,7 +44,7 @@ FROM facilities.temp_facilities;
 """
 
 select_temp_facilities_change_count = """
-select case when change_action is null then 'no_change' else change_action end, count(*)
+select case when change_action is null then 'unchanged' else change_action end, count(*)
 from facilities.temp_facilities
 where change_action in ('add', 'remove', 'update_geom', 'update_attr', 'update_geom_attr') or change_action is NULL
 group by change_action;
