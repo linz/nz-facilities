@@ -116,7 +116,6 @@ class UpdateFacilitiesTable(object):
                     no_overlaps = self.check_overlapping_geom()
 
                     if no_duplicates and no_overlaps:
-                        self.update_facilities_plugin.dlg.msgbox.insertPlainText("added {} successfully, yay\n".format(self.source_facility_id))
                         added += 1
 
             elif self.change_action == "remove":
@@ -151,7 +150,7 @@ class UpdateFacilitiesTable(object):
                 unchanged += 1
 
             else:
-                msg_box_message = "Facility ID {}: Change action '{}' not valid".format(self.facility_id, self.change_action)
+                msg_box_message = "Facility ID {}: Failed to change, change action '{}' not valid".format(self.facility_id, self.change_action)
 
                 self.update_temp_facilities_error_description(
                     msg_box_message, self.fid
@@ -198,7 +197,7 @@ class UpdateFacilitiesTable(object):
 
         if self.update_error:
             self.update_facilities_plugin.facilities_logging.error(
-                "update errors occured, no changes made to the facilities table"
+                "update failed, no changes made to the facilities table"
             )
             self.update_facilities_plugin.dlg.msgbox.insertHtml(
                 '> <font color="red"><b>update failed</b></font><br>'
@@ -225,7 +224,7 @@ class UpdateFacilitiesTable(object):
             )
 
             self.update_facilities_plugin.facilities_logging.info(
-                "facilities table updated, now {} features in the facilities table".format(
+                "update successful, now {} features in the facilities table".format(
                     rows[0][0]
                 ),
             )
@@ -269,22 +268,12 @@ class UpdateFacilitiesTable(object):
         ]
 
         if added_count != 1:
-            log_msg = (
-                "failed to add new facility with source_facility_id: {},"
-                " {} features added when 1 feature should have been added".format(
-                    self.source_facility_id, added_count
-                )
-            )
+            msg_box_message = "Source Facility ID {}: Failed to add".format(self.source_facility_id)
+            log_msg = ("{}, {} feature{} added when 1 feature should have been added".format(msg_box_message, added_count, self.get_plural(added_count)))
 
             self.update_facilities_plugin.facilities_logging.error(log_msg)
 
             self.update_error = True
-
-            msg_box_message = "Source Facility ID {}: Failed to add".format(self.source_facility_id)
-
-            error_description = "Failed to add facility, added {} features when 1 should have been added. ".format(
-                added_count
-            )
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
@@ -327,20 +316,12 @@ class UpdateFacilitiesTable(object):
         ) [0][0]
 
         if attr_row_count != 1:
-            log_msg = (
-                "failed to add new facility with source_facility_id: {},"
-                " {} duplicate attributes.".format(
-                    self.source_facility_id, attr_row_count
-                )
-            )
+            msg_box_message = "Source Facility ID {}: Failed to add, duplicate attributes".format(self.source_facility_id)
+            log_msg = ("{}, {} feature{} had duplicate attributes".format(msg_box_message, attr_row_count - 1, self.get_plural(attr_row_count - 1)))
 
             self.update_facilities_plugin.facilities_logging.error(log_msg)
 
             self.update_error = True
-
-            msg_box_message = "Source Facility ID {}: Failed to add, duplicate attributes".format(self.source_facility_id)
-
-            error_description = "Failed to add facility, duplicate attributes. "
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
@@ -349,20 +330,12 @@ class UpdateFacilitiesTable(object):
             no_duplicates = False
 
         if geom_row_count != 1:
-            log_msg = (
-                "failed to add new facility with source_facility_id: {},"
-                " {} duplicate geometry found.".format(
-                    self.source_facility_id, geom_row_count
-                )
-            )
+            msg_box_message = "Source Facility ID {}: Failed to add, duplicate geometry".format(self.source_facility_id)
+            log_msg = ("{}, {} feature{} had duplicate geometry".format(msg_box_message, geom_row_count -1 , self.get_plural(geom_row_count - 1)))
 
             self.update_facilities_plugin.facilities_logging.error(log_msg)
 
             self.update_error = True
-
-            msg_box_message = "Source Facility ID {}: Failed to add, duplicate geometry".format(self.source_facility_id)
-
-            error_description = "Failed to add facility, duplicate geometry. "
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
@@ -390,7 +363,6 @@ class UpdateFacilitiesTable(object):
         change_dic = { "add" : "adding", "remove" :"removing", "update_geom":"updating the geometry of", "update_attr":"updating the attributes of", "update_geom_attr":"updating the geometry and attributes of", "unchanged":"not changing"}
 
         for change_type, change_count in rows:
-            # print(change_type, change_count)
             change_text = change_dic[change_type]
             message += "{} {} features\n".format(change_text, change_count)
 
@@ -426,33 +398,22 @@ class UpdateFacilitiesTable(object):
         ) [0][0]
 
         if overlapping_geom_row_count != 0:
-            change_type = None
             if self.change_action == 'add':
-                change_type = 'add new'
-                id_text = 'source_facility_id'
                 id_value = self.source_facility_id
                 msg_box_id_text = 'Source Facility ID'
                 msg_box_change = 'add'
+
             elif self.change_action in ('update_geom', 'update_geom_attr'):
-                 change_type = 'modify'
-                 id_text = 'facility_id'
                  id_value = self.facility_id
                  msg_box_id_text = 'Facility ID'
                  msg_box_change = 'modify'
-            log_msg = (
-                "failed to {} facility with {}: {},"
-                " {} duplicate attributes.".format(
-                    change_type, id_text, id_value, overlapping_geom_row_count
-                )
-            )
+
+            msg_box_message = "{} {}: Failed to {}, overlapping geoms".format(msg_box_id_text, id_value, msg_box_change)
+            log_msg = ("{}, {} feature{} had overlapping geometry".format(msg_box_message, overlapping_geom_row_count, self.get_plural(overlapping_geom_row_count)))
 
             self.update_facilities_plugin.facilities_logging.error(log_msg)
 
             self.update_error = True
-
-            msg_box_message = "{} {}: Failed to {}, overlapping geoms".format(msg_box_id_text, id_value, msg_box_change)
-
-            error_description = "Failed to {} facility, overlapping geoms. ".format(change_type)
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
@@ -470,6 +431,12 @@ class UpdateFacilitiesTable(object):
             sql
         )
 
+    def get_plural(self, count):
+        if count > 1:
+            return 's'
+        else:
+            return ''
+
     def remove_facility(self):
 
         succesfully_removed = False
@@ -484,42 +451,28 @@ class UpdateFacilitiesTable(object):
         )
         row_count = len(rows)
         if row_count == 0:
-            log_msg = (
-                "failed to deleted facility id: {},"
-                "no matching id".format(
-                    self.facility_id
-                )
-            )
-
-            self.update_facilities_plugin.facilities_logging.error(log_msg)
-
-            self.update_error = True
-
             msg_box_message = "Facility ID {}: Failed to delete. No matching id".format(self.facility_id)
 
-            error_description = "Failed to delete facility, no matching id. "
+            self.update_facilities_plugin.facilities_logging.error(msg_box_message)
+
+            self.update_error = True
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
             )
         elif row_count > 1:
             # should not be possible as it is the primary id
+            msg_box_message = "Facility ID {}: Failed to delete".format(self.facility_id)
+
             log_msg = (
-                "failed to deleted facility id: {},"
-                " {} features deleted when 1 feature should have been deleted".format(
-                    self.facility_id, row_count
+                "{}, {} feature{} deleted when 1 feature should have been deleted".format(
+                    msg_box_message, row_count, self.get_plural(row_count)
                 )
             )
 
             self.update_facilities_plugin.facilities_logging.error(log_msg)
 
             self.update_error = True
-
-            msg_box_message = "Facility ID {}: Failed to delete".format(self.facility_id)
-
-            error_description = "Failed to delete facility, deleted {} features when 1 should have been deleted. ".format(
-                deleted_count
-            )
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
@@ -542,22 +495,16 @@ class UpdateFacilitiesTable(object):
                 # this section should no longer be used as the check for id's / row count will notify the
                 # user when there is not a 1 to 1 match.
                 # Kept incase fails for unexpected reasons
+                msg_box_message = "Facility ID {}: Failed to delete".format(self.facility_id)
                 log_msg = (
-                    "failed to deleted facility id: {},"
-                    " {} features deleted when 1 feature should have been deleted".format(
-                        self.facility_id, deleted_count
+                    "{}, {} feature{} deleted when 1 feature should have been deleted".format(
+                        msg_box_message, self.facility_id, deleted_count, self.get_plural(deleted_count)
                     )
                 )
 
                 self.update_facilities_plugin.facilities_logging.error(log_msg)
 
                 self.update_error = True
-
-                msg_box_message = "Facility ID {}: Failed to delete".format(self.facility_id)
-
-                error_description = "Failed to delete facility, deleted {} features when 1 should have been deleted. ".format(
-                    deleted_count
-                )
 
                 self.update_temp_facilities_error_description(
                     msg_box_message, self.fid
@@ -583,20 +530,11 @@ class UpdateFacilitiesTable(object):
         original_feature_count = len(original_feature_rows)
 
         if original_feature_count != 1:
-            log_msg = (
-                "failed to modify the attributes of facility id: {},"
-                "no matching id".format(
-                    self.facility_id
-                )
-            )
-
-            self.update_facilities_plugin.facilities_logging.error(log_msg)
-
-            self.update_error = True
-
             msg_box_message = "Facility ID {}: Failed to modify attributes. No matching id".format(self.facility_id)
 
-            error_description = "Failed to modify facility, no matching id. "
+            self.update_facilities_plugin.facilities_logging.error(msg_box_message)
+
+            self.update_error = True
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
@@ -621,16 +559,13 @@ class UpdateFacilitiesTable(object):
 
         # only a single feature shoudl have its attributes modified
         if attribute_count != 1:
-            log_msg = "failed to modify facility id: {} change sql: {}".format(
-                self.facility_id, self.change_sql
+            msg_box_message = "Facility ID {}: Failed to modify attr".format(self.facility_id)
+            log_msg = "{}. Change_sql: {}".format(
+                msg_box_message, self.change_sql
             )
             self.update_facilities_plugin.facilities_logging.error(log_msg)
 
             self.update_error = True
-
-            msg_box_message = "Facility ID {}: Failed to modify attr".format(self.facility_id)
-
-            error_description = "Failed to modify facility using change_sql: {}. ".format(self.change_sql)
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
@@ -649,22 +584,16 @@ class UpdateFacilitiesTable(object):
 
             if new_feature_attr == original_feature_attr:
                 # there has been no changes in attributes
+                msg_box_message = "Facility ID {}: Failed to modify attr, new matches old".format(self.facility_id)
                 log_msg = (
-                    "failed to add modify facility with facility_id: {},"
-                    " new attributes match old,",
-                    " sql did not modify the attributes."
-                    " Change_sql: {}".format(
-                        self.facility_id, self.change_sql
+                    "{}. Change_sql: {}".format(
+                        msg_box_message, self.change_sql
                     )
                 )
 
                 self.update_facilities_plugin.facilities_logging.error(log_msg)
 
                 self.update_error = True
-
-                msg_box_message = "Facility ID {}: Failed to modify attr, new matches old".format(self.facility_id)
-
-                error_description = "Failed to modify facility using change_sql: {}. New attributes match the old attributes. ".format(self.change_sql)
 
                 self.update_temp_facilities_error_description(
                     msg_box_message, self.fid
@@ -685,21 +614,17 @@ class UpdateFacilitiesTable(object):
                 ]
 
                 if duplicate_count != 1:
+                    msg_box_message = "Facility ID {}: Failed to modify attr, duplicate features".format(self.facility_id)
                     log_msg = (
-                        "failed to add modify facility with facility_id: {},"
-                        " as it created {} duplicate features."
+                        "{}, {} duplicate feature{} created."
                         " Change_sql: {}".format(
-                            self.facility_id, duplicate_count, self.change_sql
+                            msg_box_message, duplicate_count - 1, self.get_plural(duplicate_count - 1), self.change_sql
                         )
                     )
 
                     self.update_facilities_plugin.facilities_logging.error(log_msg)
 
                     self.update_error = True
-
-                    msg_box_message = "Facility ID {}: Failed to modify attr, duplicate features".format(self.facility_id)
-
-                    error_description = "Failed to modify facility using change_sql: {}. Created duplicates. ".format(self.change_sql)
 
                     self.update_temp_facilities_error_description(
                         msg_box_message, self.fid
@@ -723,42 +648,27 @@ class UpdateFacilitiesTable(object):
         # check rows returned, if not rows or more than 1 will not be updating a single feature
         row_count = len(rows)
         if row_count == 0:
-            log_msg = (
-                "failed to modify the geomtry facility id: {},"
-                "no matching id".format(
-                    self.facility_id
-                )
-            )
-
-            self.update_facilities_plugin.facilities_logging.error(log_msg)
-
-            self.update_error = True
-
             msg_box_message = "Facility ID {}: Failed to modify geometry. No matching id".format(self.facility_id)
 
-            error_description = "Failed to modify facility, no matching id. "
+            self.update_facilities_plugin.facilities_logging.error(msg_box_message)
+
+            self.update_error = True
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
             )
         elif row_count > 1:
             # should not be possible as it is the primary id
+            msg_box_message = "Facility ID {}: Failed to modify geometry, multiple matching ids".format(self.facility_id)
             log_msg = (
-                "failed to modify facility id: {},"
-                " {} features with matching id when 1 feature should have been identified".format(
-                    self.facility_id, row_count
+                "{}, {} feature{} with matching id when 1 feature should have been identified".format(
+                    msg_box_message, row_count, self.get_plural(row_count)
                 )
             )
 
             self.update_facilities_plugin.facilities_logging.error(log_msg)
 
             self.update_error = True
-
-            msg_box_message = "Facility ID {}: Failed to modify geometry, multiple macthign ids".format(self.facility_id)
-
-            error_description = "Failed to modify facility, {} features macthed when 1 should have been identified. ".format(
-                row_count
-            )
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
@@ -781,39 +691,25 @@ class UpdateFacilitiesTable(object):
             if modified_count != 1:
                 # if a singe record has not been modified, check if due to old and enw geoms matching and report
                 if orig_wkt == self.shape_wkt:
-                    log_msg = "geom for facility id {} has not been modified, old and new geometries the same".format(
-                        self.facility_id
-                    )
-                    self.update_facilities_plugin.facilities_logging.error(log_msg)
+                    msg_box_message = "Facility ID {}: Failed to modify geometry, new matches old".format(self.facility_id)
+                    self.update_facilities_plugin.facilities_logging.error(msg_box_message)
 
                     self.update_error = True
-
-                    msg_box_message = "Facility ID {}: Failed to modify geom, new matches old".format(self.facility_id)
-
-                    error_description = (
-                        "Failed to update geometry, old and new geometries the same. "
-                    )
 
                     self.update_temp_facilities_error_description(
                         msg_box_message, self.fid
                     )
 
                 else:
+                    msg_box_message = "Facility ID {}: Failed to modify geom".format(self.facility_id)
                     log_msg = (
-                        "failed to modify facility id: {} "
-                        "{} features modified when 1 feature should have been modified".format(
-                            self.facility_id, modified_count
+                        "{}, {} feature{} modified when 1 feature should have been modified".format(
+                            msg_box_message, modified_count, self.get_plural(modified_count)
                         )
                     )
                     self.update_facilities_plugin.facilities_logging.error(log_msg)
 
                     self.update_error = True
-
-                    msg_box_message = "Facility ID {}: Failed to modify geom".format(self.facility_id)
-
-                    error_description = "Failed to update geometry, updated {} features when 1 should have been updated. ".format(
-                        modified_count
-                    )
 
                     self.update_temp_facilities_error_description(
                         msg_box_message, self.fid
@@ -865,16 +761,13 @@ class UpdateFacilitiesTable(object):
         if attribute_count != 1:
             successfully_updated_geom_attr = False
 
-            log_msg = "failed to modify facility id: {} change sql: {}".format(
-                self.facility_id, self.change_sql
+            msg_box_message = "Facility ID {}: Failed to modify attr".format(self.facility_id)
+            log_msg = "{}. Change sql: {}".format(
+                msg_box_message, self.change_sql
             )
             self.update_facilities_plugin.facilities_logging.error(log_msg)
 
             self.update_error = True
-
-            msg_box_message = "Facility ID {}: Failed to modify attr".format(self.facility_id)
-
-            error_description = "Failed to modify facility using change_sql: {}. ".format(self.change_sql)
 
             self.update_temp_facilities_error_description(
                 msg_box_message, self.fid
@@ -895,22 +788,16 @@ class UpdateFacilitiesTable(object):
                 successfully_updated_geom_attr = False
 
                 # there has been no changes in attributes
+                msg_box_message = "Facility ID {}: Failed to modify attr, new matches old".format(self.facility_id)
                 log_msg = (
-                    "failed to add modify facility with facility_id: {},"
-                    " new attributes match old,",
-                    " sql did not modify the attributes."
-                    " Change_sql: {}".format(
-                        self.facility_id, self.change_sql
+                    "{}. Change_sql: {}".format(
+                        msg_box_message, self.change_sql
                     )
                 )
 
                 self.update_facilities_plugin.facilities_logging.error(log_msg)
 
                 self.update_error = True
-
-                msg_box_message = "Facility ID {}: Failed to modify attr, new matches old".format(self.facility_id)
-
-                error_description = "Failed to modify facility using change_sql: {}. New attributes match the old attributes. ".format(self.change_sql)
 
                 self.update_temp_facilities_error_description(
                     msg_box_message, self.fid
@@ -932,22 +819,18 @@ class UpdateFacilitiesTable(object):
 
                 if duplicate_count != 1:
                     successfully_updated_geom_attr = False
+                    msg_box_message = "Facility ID {}: Failed to modify attr, duplicate features".format(self.facility_id)
 
                     log_msg = (
-                        "failed to add modify facility with facility_id: {},"
-                        " as it created {} duplicate features."
+                        "{}, {} duplicate feature{} created."
                         " Change_sql: {}".format(
-                            self.facility_id, duplicate_count, self.change_sql
+                            msg_box_message, duplicate_count -1 , self.get_plural(duplicate_count - 1), self.change_sql
                         )
                     )
 
                     self.update_facilities_plugin.facilities_logging.error(log_msg)
 
                     self.update_error = True
-
-                    msg_box_message = "Facility ID {}: Failed to modify attr, duplicate features".format(self.facility_id)
-
-                    error_description = "Failed to modify facility using change_sql: {}. Created duplicates. ".format(self.change_sql)
 
                     self.update_temp_facilities_error_description(
                         msg_box_message, self.fid
@@ -968,18 +851,11 @@ class UpdateFacilitiesTable(object):
             if orig_wkt == self.shape_wkt:
                 successfully_updated_geom_attr = False
 
-                log_msg = "geom for facility id {} has not been modified, old and new geometries the same".format(
-                    self.facility_id
-                )
-                self.update_facilities_plugin.facilities_logging.error(log_msg)
-
-                self.update_error = True
-
                 msg_box_message = "Facility ID {}: Failed to modify geom, new matches old".format(self.facility_id)
 
-                error_description = (
-                    "Failed to update geometry, old and new geometries the same. "
-                )
+                self.update_facilities_plugin.facilities_logging.error(msg_box_message)
+
+                self.update_error = True
 
                 self.update_temp_facilities_error_description(
                     msg_box_message, self.fid
@@ -988,21 +864,16 @@ class UpdateFacilitiesTable(object):
             else:
                 successfully_updated_geom_attr = False
 
+                msg_box_message = "Facility ID {}: Failed to modify geom".format(self.facility_id)
+
                 log_msg = (
-                    "failed to modify facility id: {} "
-                    "{} features modified when 1 feature should have been modified".format(
-                        self.facility_id, modified_count
+                    "{}, {} feature{} modified when 1 feature should have been modified".format(
+                        msg_box_message, modified_count, self.get_plural(modified_count)
                     )
                 )
                 self.update_facilities_plugin.facilities_logging.error(log_msg)
 
                 self.update_error = True
-
-                msg_box_message = "Facility ID {}: Failed to modify geom".format(self.facility_id)
-
-                error_description = "Failed to update geometry, updated {} features when 1 should have been updated. ".format(
-                    modified_count
-                )
 
                 self.update_temp_facilities_error_description(
                     msg_box_message, self.fid
