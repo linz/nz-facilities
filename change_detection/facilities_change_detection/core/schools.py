@@ -9,14 +9,21 @@ from shapely.geometry import MultiPoint, Point
 from shapely.ops import nearest_points, transform
 from tqdm import tqdm
 
-from facilities_change_detection.core.facilities import ChangeAction, ExternalSource, GeoInterface, GeoSchema
+from facilities_change_detection.core.facilities import (
+    ChangeAction,
+    ExternalSource,
+    GeoInterface,
+    GeoSchema,
+)
 from facilities_change_detection.core.log import get_logger
 
 
 logger = get_logger()
 
 TEEN_UNIT_DISTANCE_THRESHOLD = 100
-TRANSFORMER_4326_TO_2193 = pyproj.Transformer.from_crs(pyproj.CRS("EPSG:4326"), pyproj.CRS("EPSG:2193"), always_xy=True)
+TRANSFORMER_4326_TO_2193 = pyproj.Transformer.from_crs(
+    pyproj.CRS("EPSG:4326"), pyproj.CRS("EPSG:2193"), always_xy=True
+)
 MOE_ENDPOINT = "https://catalogue.data.govt.nz/api/3/action/datastore_search_sql"
 MOE_SQL = """
 SELECT
@@ -30,7 +37,7 @@ SELECT
     "Longitude",
     "Roll_Date",
     "Total"
-FROM "20b7c271-fd5a-4c9e-869b-481a0e2453cd"
+FROM "4b292323-9fcc-41f8-814b-3c7b19cf14b3"
 ORDER BY "School_Id"
 """
 
@@ -121,7 +128,8 @@ class MOESchool(ExternalSource):
 
 
 def request_moe_api(
-    api_response_input_path: Path | None = None, api_response_output_path: Path | None = None
+    api_response_input_path: Path | None = None,
+    api_response_output_path: Path | None = None,
 ) -> dict[int, MOESchool]:
     """
     Access MOE API and retrieve school records.
@@ -131,14 +139,18 @@ def request_moe_api(
     Return results as a dictionary, so you can access values in the object by key.
     """
     if api_response_input_path is not None:
-        logger.info(f"Loading previous MOE API response from {api_response_input_path.name}")
+        logger.info(
+            f"Loading previous MOE API response from {api_response_input_path.name}"
+        )
         with api_response_input_path.open() as f:
             response_content = json.load(f)
     else:
         logger.info("Accessing MOE API")
         response = requests.get(MOE_ENDPOINT, params={"sql": MOE_SQL}, timeout=10)
         if not response.ok:
-            raise FatalError(f"Request to API returned: Status Code {response.status_code}, {response.reason}")
+            raise FatalError(
+                f"Request to API returned: Status Code {response.status_code}, {response.reason}"
+            )
         response_content = response.json()
         if api_response_output_path is not None:
             api_response_output_path.write_bytes(response.content)
@@ -178,11 +190,18 @@ def filter_moe_schools(
         if school.source_type == "Teen Parent Unit" and school.geom is not None:
             # Create a multipoint containing all other schools
             other_schools = MultiPoint(
-                [school.geom for school in moe_schools.values() if school.source_id != id_ and school.geom is not None]
+                [
+                    school.geom
+                    for school in moe_schools.values()
+                    if school.source_id != id_ and school.geom is not None
+                ]
             )
             # Get point of nearest other school
             nearest_other_school = nearest_points(school.geom, other_schools)[1]
             # Ignore if the nearest other school point is less than the threshold distance
-            if school.geom.distance(nearest_other_school) < TEEN_UNIT_DISTANCE_THRESHOLD:
+            if (
+                school.geom.distance(nearest_other_school)
+                < TEEN_UNIT_DISTANCE_THRESHOLD
+            ):
                 school.change_action = ChangeAction.IGNORE
     return moe_schools
