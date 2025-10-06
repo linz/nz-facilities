@@ -46,7 +46,12 @@ HPI_COLUMNS_OF_INTEREST = {
 # Columns to compare for changes when comparing NZ Facilities data to HPI data.
 # Keys are column names in NZ Facilities, with values of column names to compare
 # against in the HPI data.
-FACILITIES_HPI_COMPARISON_COLUMNS = {"name": "name", "source_name": "name", "use_type": "type", "estimated_occupancy": "occupancy"}
+FACILITIES_HPI_COMPARISON_COLUMNS = {
+    "name": "name",
+    "source_name": "name",
+    "use_type": "type",
+    "estimated_occupancy": "occupancy",
+}
 # URLs of pages with maps of HealthCERT featuress to scrape
 HEALTHCERT_MAP_URLS = {
     "Public hospital": "https://www.health.govt.nz/your-health/certified-providers/public-hospital",
@@ -97,10 +102,14 @@ def download_hpi_excel(output_folder: Path, overwrite: bool) -> Path:
     tree = lxml.html.fromstring(r.content)
     # Find all <a> elements with a class of "download__link" who are descendents
     # of a <div> element whose id value starts with "facility-code-table"
-    els = tree.xpath('//div[starts-with(@id,"facility-code-table")]//a[@class="download__link"]')
+    els = tree.xpath(
+        '//div[starts-with(@id,"facility-code-table")]//a[@class="download__link"]'
+    )
     # If there isn't a single element, raise an exception
     if len(els) != 1:
-        raise ValueError(f"Found {len(els)} matching download link xpath selector, expected 1")
+        raise ValueError(
+            f"Found {len(els)} matching download link xpath selector, expected 1"
+        )
     logger.info("Parsed download link from landing page")
     # Extract href attribute from <a> element and resolve full download URL
     href = els[0].attrib["href"]
@@ -114,7 +123,9 @@ def download_hpi_excel(output_folder: Path, overwrite: bool) -> Path:
         raise ValueError(f"Cannot parse date from filename {download_filename}")
     # Download the file to the output file, and return the path
     if overwrite is False and output_file.exists():
-        raise ValueError(f"{output_file} already exists. To overwrite, rerun with --overwrite.")
+        raise ValueError(
+            f"{output_file} already exists. To overwrite, rerun with --overwrite."
+        )
     return download_file(download_url, output_file)
 
 
@@ -139,7 +150,10 @@ def download_healthcert_gpkg(show_progressbar: bool) -> gpd.GeoDataFrame:
     Returns:
         A GeoDataFrame containing all features from the map.
     """
-    gdfs = [scrape_healthcert_map_page(kind, show_progressbar) for kind in HEALTHCERT_MAP_URLS.keys()]
+    gdfs = [
+        scrape_healthcert_map_page(kind, show_progressbar)
+        for kind in HEALTHCERT_MAP_URLS.keys()
+    ]
     return gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
 
 
@@ -170,12 +184,16 @@ def scrape_healthcert_map_page(kind, show_progressbar: bool) -> gpd.GeoDataFrame
     try:
         script_el = tree.xpath("//script[contains(text(), '\"leaflet\":')]")[0]
     except IndexError as e:
-        raise RuntimeError(f"Cannot find javascript variable containing map definition in {map_page_url}") from e
+        raise RuntimeError(
+            f"Cannot find javascript variable containing map definition in {map_page_url}"
+        ) from e
     script_data = chompjs.parse_js_object(script_el.text)
     try:
         raw_features = script_data["leaflet"][0]["features"]
     except (IndexError, KeyError) as e:
-        raise RuntimeError("Cannot find list of features inside map javascript data") from e
+        raise RuntimeError(
+            "Cannot find list of features inside map javascript data"
+        ) from e
     features = []
     if show_progressbar is True:
         pbar = tqdm(total=len(raw_features), unit="feat")
@@ -185,7 +203,9 @@ def scrape_healthcert_map_page(kind, show_progressbar: bool) -> gpd.GeoDataFrame
             lat = raw_feature["lat"]
             lon = raw_feature["lon"]
         except KeyError as e:
-            raise RuntimeError('Leflet map feature does not have required attributes ("popup", "lat", "lon")') from e
+            raise RuntimeError(
+                'Leflet map feature does not have required attributes ("popup", "lat", "lon")'
+            ) from e
         match = re.match(r'.+<br /><a href="(.+?)"', popup)
         if not match:
             raise RuntimeError(f'Failed to parse URL from "popup" attribute: {popup}')
@@ -199,7 +219,9 @@ def scrape_healthcert_map_page(kind, show_progressbar: bool) -> gpd.GeoDataFrame
     if show_progressbar is True:
         pbar.close()
     df = pd.DataFrame(features)
-    gdf = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(x=df["lon"], y=df["lat"], crs=4326))
+    gdf = gpd.GeoDataFrame(
+        df, geometry=gpd.points_from_xy(x=df["lon"], y=df["lat"], crs=4326)
+    )
     gdf.drop(columns=["lon", "lat"], inplace=True)
     gdf.to_crs(2193)
     return gdf
@@ -227,11 +249,20 @@ def scrape_healthcert_info_page(info_page_url: str) -> dict[str, str | int | Non
     try:
         name = tree.xpath("//th[text()='Premises name']/following-sibling::td")[0].text
         address = tree.xpath("//th[text()='Address']/following-sibling::td")[0].text
-        occupancy = int(tree.xpath("//th[text()='Total beds']/following-sibling::td")[0].text)
-        service_types = tree.xpath("//th[text()='Service types']/following-sibling::td")[0].text
+        occupancy = int(
+            tree.xpath("//th[text()='Total beds']/following-sibling::td")[0].text
+        )
+        service_types = tree.xpath(
+            "//th[text()='Service types']/following-sibling::td"
+        )[0].text
     except (IndexError, ValueError, TypeError) as e:
         raise RuntimeError("Failed to parse attributes from page HTML") from e
-    return {"name": name, "address": address, "occupancy": occupancy, "service_types": service_types}
+    return {
+        "name": name,
+        "address": address,
+        "occupancy": occupancy,
+        "service_types": service_types,
+    }
 
 
 #################################
@@ -239,7 +270,9 @@ def scrape_healthcert_info_page(info_page_url: str) -> dict[str, str | int | Non
 #################################
 
 
-def load_hpi_excel(input_file: Path, ignore_file: Path | None = None) -> gpd.GeoDataFrame:
+def load_hpi_excel(
+    input_file: Path, ignore_file: Path | None = None
+) -> gpd.GeoDataFrame:
     """
     Loads an HPI Excel file to a GeoPandas GeoDataFrame.
 
@@ -275,7 +308,9 @@ def load_hpi_excel(input_file: Path, ignore_file: Path | None = None) -> gpd.Geo
     # Filter to just the columns we're interested in
     hpi_df = filter_df_columns(hpi_df, HPI_COLUMNS_OF_INTEREST)
     # Strip leading and trailing whitespace from these columns
-    hpi_df = strip_column_values(hpi_df, ["name", "address", "type", "organisation_name"])
+    hpi_df = strip_column_values(
+        hpi_df, ["name", "address", "type", "organisation_name"]
+    )
     # If an ignore file was supplied,
     # load the IDS from that file and filter them out.
     if ignore_file is not None:
@@ -287,7 +322,9 @@ def load_hpi_excel(input_file: Path, ignore_file: Path | None = None) -> gpd.Geo
     hpi_df["address"] = hpi_df["address"].str.rstrip(",")
     hpi_df["type"] = standardise_hpi_type(hpi_df["type"])
     # Convert the Pandas DataFrame to a Geopandas GeoDataFrame
-    hpi_gdf = gpd.GeoDataFrame(data=hpi_df, geometry=gpd.points_from_xy(hpi_df.x, hpi_df.y), crs=4167)
+    hpi_gdf = gpd.GeoDataFrame(
+        data=hpi_df, geometry=gpd.points_from_xy(hpi_df.x, hpi_df.y), crs=4167
+    )
     hpi_gdf = hpi_gdf.to_crs(2193)
     hpi_gdf.drop(columns=["x", "y"], inplace=True)
     hpi_gdf = convert_intlike_cols_to_nullable_int(hpi_gdf)
@@ -312,7 +349,7 @@ def load_facilities_hospitals(input_file: Path) -> gpd.GeoDataFrame:
     return facilities_gdf
 
 
-def load_healthcert_hospitals(input_file: Path) -> gpd.GeoDataFrame:
+def load_healthcert_hospitals_old(input_file: Path) -> gpd.GeoDataFrame:
     """
     Reads an input HealthCERT GeoPackage (as created by
     `scrape_healthcert_map_page`), and returns a GeoDataFrame of
@@ -326,8 +363,120 @@ def load_healthcert_hospitals(input_file: Path) -> gpd.GeoDataFrame:
     """
     healthcert_gdf = gpd.read_file(input_file)
     healthcert_gdf = healthcert_gdf.to_crs(2193)
-    healthcert_gdf = healthcert_gdf[healthcert_gdf["kind"].isin({"Public hospital", "Private hospital"})]
+    healthcert_gdf = healthcert_gdf[
+        healthcert_gdf["kind"].isin({"Public hospital", "Private hospital"})
+    ]
     healthcert_gdf = convert_intlike_cols_to_nullable_int(healthcert_gdf)
+    return healthcert_gdf
+
+
+def load_healthcert_hospitals(input_file: Path) -> gpd.GeoDataFrame:
+    """
+    Reads an input HealthCERT xlsx (received from MoH), and returns a GeoDataFrame of
+    its contents, filtered to only include Hospital features.
+
+    Args:
+        input_file: The Path to the NZ Facilities GeoPackage
+
+    Returns:
+        A GeoDataFrame of Hospital features.
+    """
+    healthcert_df = pd.read_excel(input_file, sheet_name="Premises", engine="calamine")
+
+    # refine to only hopsitals
+    replacement_dict = {
+        "NGO Hospital": "Private hospital",
+        "Public Hospital": "Public hospital",
+    }
+    healthcert_df["PRIMARY_SERVICE_TYPE"] = healthcert_df[
+        "PRIMARY_SERVICE_TYPE"
+    ].replace(replacement_dict)
+
+    # create street address
+    healthcert_df["STREET_ADDRESS_SUBURB_RD_concat"] = healthcert_df.apply(
+        lambda row: (
+            ""
+            if pd.isnull(row["STREET_ADDRESS_SUBURB_RD"])
+            else " " + row["STREET_ADDRESS_SUBURB_RD"]
+        ),
+        axis=1,
+    )
+
+    healthcert_df["address"] = (
+        healthcert_df["STREET_ADDRESS"]
+        + ""
+        + healthcert_df["STREET_ADDRESS_SUBURB_RD_concat"]
+        + " "
+        + healthcert_df["STREET_ADDRESS_TOWN_CITY"]
+        + " "
+        + healthcert_df["STREET_ADDRESS_POST_CODE"].astype(str)
+    )
+
+    healthcert_df.drop(
+        columns=[
+            "STREET_ADDRESS",
+            "STREET_ADDRESS_SUBURB_RD",
+            "STREET_ADDRESS_TOWN_CITY",
+            "STREET_ADDRESS_POST_CODE",
+            "STREET_ADDRESS_SUBURB_RD_concat",
+        ],
+        axis=1,
+        inplace=True,
+    )
+
+    healthcert_df.rename(
+        columns={
+            "PREMISES_NAME": "name",
+            "TOTAL_BEDS": "occupancy",
+            "PRIMARY_SERVICE_TYPE": "kind",
+            "PREMISES_SERVICES_LIST": "service_types",
+        },
+        inplace=True,
+    )
+
+    # refine to only hospitals
+    healthcert_df = healthcert_df[
+        healthcert_df["kind"].isin({"Public hospital", "Private hospital"})
+    ]
+
+    # type correct it just joined by ; not ,
+    healthcert_df["service_types"] = healthcert_df["service_types"].str.replace(
+        ";", ","
+    )
+
+    # add coords and save as geodataframe
+    healthcert_gdf = gpd.GeoDataFrame(
+        data=healthcert_df,
+        geometry=gpd.points_from_xy(
+            healthcert_df.STREET_ADDRESS_LONGITUDE,
+            healthcert_df.STREET_ADDRESS_LATITUDE,
+        ),
+        crs=4167,
+    )
+    healthcert_gdf = healthcert_gdf.to_crs(2193)
+
+    # remove unneeded columns
+    healthcert_gdf.drop(
+        columns=["STREET_ADDRESS_LATITUDE", "STREET_ADDRESS_LONGITUDE", "HPI_FAC_CODE"],
+        inplace=True,
+    )
+
+    # Define the new order of columns
+    new_column_order = [
+        "PREMISES_CASE_ID",
+        "name",
+        "address",
+        "occupancy",
+        "service_types",
+        "kind",
+        "geometry",
+    ]
+
+    # Reassign the DataFrame with the new column order
+    healthcert_gdf = healthcert_gdf[new_column_order]
+
+    healthcert_gdf = convert_intlike_cols_to_nullable_int(healthcert_gdf)
+
     return healthcert_gdf
 
 
@@ -457,7 +606,9 @@ def update_midwife_likelihood(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gdf
 
 
-def add_hpi_occupancy(hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFrame, linking_file: Path) -> gpd.GeoDataFrame:
+def add_hpi_occupancy(
+    hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFrame, linking_file: Path
+) -> gpd.GeoDataFrame:
     """
     Adds occupany from HealthCERT data to HPI data using a linking CSV which
     maps "hpi_facility_id" to "healthcert_name".
@@ -478,7 +629,9 @@ def add_hpi_occupancy(hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFram
     """
     linking_df = pd.read_csv(linking_file)
     # Warn about and then drop any duplicate values for hpi_facility_id
-    hpi_facility_id_duplicates = linking_df[linking_df["hpi_facility_id"].duplicated(keep=False)]
+    hpi_facility_id_duplicates = linking_df[
+        linking_df["hpi_facility_id"].duplicated(keep=False)
+    ]
     if not hpi_facility_id_duplicates.empty:
         logger.warning(
             f"Duplicated 'hpi_facility_id' values found in HealthCERT <> HPI linking CSV, {linking_file}:\n"
@@ -490,7 +643,9 @@ def add_hpi_occupancy(hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFram
         )
         linking_df.drop_duplicates("hpi_facility_id", inplace=True)
     # Warn about and then drop any duplicate values for healthcert_name
-    healthcert_name_duplicates = linking_df[linking_df["healthcert_name"].duplicated(keep=False)]
+    healthcert_name_duplicates = linking_df[
+        linking_df["healthcert_name"].duplicated(keep=False)
+    ]
     if not healthcert_name_duplicates.empty:
         logger.warning(
             f"Duplicated 'healthcert_name' values found in HealthCERT <> HPI linking CSV, {linking_file}:\n"
@@ -501,10 +656,21 @@ def add_hpi_occupancy(hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFram
             "If this is not the desired outcome, please edit the linking CSV to remove duplicates before rerunning."
         )
         linking_df.drop_duplicates("healthcert_name", inplace=True)
+
+    # Warn about duplicate values for healthcert_name in the healthcert gdf
+
     # Merge linking tablee to healthcert data
-    linking_df = linking_df.merge(healthcert_gdf, how="left", left_on="healthcert_name", right_on="name")
+    linking_df = linking_df.merge(
+        healthcert_gdf, how="left", left_on="healthcert_name", right_on="name"
+    )
     # Drop everything but the hpi_facility_id and occupancy
-    linking_df = linking_df.drop(columns=[col for col in linking_df.columns if col not in {"hpi_facility_id", "occupancy"}])
+    linking_df = linking_df.drop(
+        columns=[
+            col
+            for col in linking_df.columns
+            if col not in {"hpi_facility_id", "occupancy"}
+        ]
+    )
     # Merge occupancy to hpi data
     hpi_gdf = hpi_gdf.merge(linking_df, how="left", on="hpi_facility_id")
     return hpi_gdf
@@ -516,7 +682,9 @@ def add_hpi_occupancy(hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFram
 
 
 def compare_facilities_to_hpi(
-    facilities_gdf: gpd.GeoDataFrame, hpi_gdf: gpd.GeoDataFrame, should_ignore_occupancy: bool = False
+    facilities_gdf: gpd.GeoDataFrame,
+    hpi_gdf: gpd.GeoDataFrame,
+    should_ignore_occupancy: bool = False,
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """
     Compares GeoDataFrames of hospitals from NZ Facilities data with HPI data.
@@ -550,7 +718,9 @@ def compare_facilities_to_hpi(
     facilities_gdf["geometry_change"] = None
     facilities_gdf["comments"] = None
     # Filter out any rows which have a missing value for source_facility_id
-    facilities_missing_id_gdf = facilities_gdf[facilities_gdf["source_facility_id"].isna()].copy()
+    facilities_missing_id_gdf = facilities_gdf[
+        facilities_gdf["source_facility_id"].isna()
+    ].copy()
     facilities_gdf = facilities_gdf[~facilities_gdf["source_facility_id"].isna()]
     if not facilities_missing_id_gdf.empty:
         logger.warning(
@@ -558,7 +728,9 @@ def compare_facilities_to_hpi(
             "'source_facility_id' which is required to compare them to the HPI data. Marking them as unable to compare."
         )
         facilities_missing_id_gdf["change_action"] = ChangeAction.CANNOT_COMPARE
-        facilities_missing_id_gdf["change_description"] = 'Missing value for "source_facility_id", cannot compare'
+        facilities_missing_id_gdf["change_description"] = (
+            'Missing value for "source_facility_id", cannot compare'
+        )
     # Convert the two GeoDataFrames to dictionarys
     facilities_dict = df_to_dict(facilities_gdf, "source_facility_id")
     hpi_dict = df_to_dict(hpi_gdf, "hpi_facility_id")
@@ -600,12 +772,12 @@ def compare_facilities_to_hpi(
                 facilities_val = facilities_attrs[facilities_col]
                 hpi_val = hpi_attrs[hpi_col]
                 # Reset all estimated_occupancy values which might be nan to zero
-                if facilities_col == "estimated_occupancy"and pd.isna(facilities_val):
+                if facilities_col == "estimated_occupancy" and pd.isna(facilities_val):
                     facilities_val = "0"
                 if hpi_col == "occupancy" and pd.isna(hpi_val):
                     hpi_val = "0"
                 # Skip where both values are NaN, as NaN does not equal itself (not required now that nan is replaced by zeros)
-                #if pd.isna(facilities_val) and pd.isna(hpi_val):
+                # if pd.isna(facilities_val) and pd.isna(hpi_val):
                 #    continue
                 facilities_attrs[f"new_source_{hpi_col}"] = hpi_val
                 if facilities_val != hpi_val:
@@ -615,7 +787,12 @@ def compare_facilities_to_hpi(
             if attr_changes:
                 if facilities_attrs["facility_id"] is not None:
                     facility_id = facilities_attrs["facility_id"]
-                description = ";  ".join([f'{field}: "{old}" -> "{new}"' for field, (old, new) in attr_changes.items()])
+                description = ";  ".join(
+                    [
+                        f'{field}: "{old}" -> "{new}"'
+                        for field, (old, new) in attr_changes.items()
+                    ]
+                )
 
                 sql = "UPDATE facilities.facilities SET "
                 for attr, (old_attr, new_attr) in attr_changes.items():
@@ -649,19 +826,29 @@ def compare_facilities_to_hpi(
             facilities_attrs["change_action"] = ChangeAction.REMOVE
             facilities_attrs["geometry_change"] = "Delete"
     # Convert the dictionaries back to GeoDataFrames
-    updated_facilities_gdf = gpd.GeoDataFrame(dict_to_df(facilities_dict, "source_facility_id"), geometry="geometry", crs=2193)
-    hpi_new_gdf = gpd.GeoDataFrame(dict_to_df(new_facilities, "hpi_facility_id"), geometry="geometry", crs=2193)
-    hpi_matched_gdf = gpd.GeoDataFrame(dict_to_df(matched_facilities, "hpi_facility_id"), geometry="geometry", crs=2193)
+    updated_facilities_gdf = gpd.GeoDataFrame(
+        dict_to_df(facilities_dict, "source_facility_id"), geometry="geometry", crs=2193
+    )
+    hpi_new_gdf = gpd.GeoDataFrame(
+        dict_to_df(new_facilities, "hpi_facility_id"), geometry="geometry", crs=2193
+    )
+    hpi_matched_gdf = gpd.GeoDataFrame(
+        dict_to_df(matched_facilities, "hpi_facility_id"), geometry="geometry", crs=2193
+    )
     # Add back in facilities rows with missing value for source_facility_id
     if not facilities_missing_id_gdf.empty:
         updated_facilities_gdf = gpd.GeoDataFrame(
-            pd.concat([updated_facilities_gdf, facilities_missing_id_gdf], ignore_index=True)
+            pd.concat(
+                [updated_facilities_gdf, facilities_missing_id_gdf], ignore_index=True
+            )
         )
     return updated_facilities_gdf, hpi_new_gdf, hpi_matched_gdf
 
 
 def update_linking_table(
-    hpi_gdf: gpd.GeoDataFrame, healthcert_gdf: gpd.GeoDataFrame, linking_df: pd.DataFrame
+    hpi_gdf: gpd.GeoDataFrame,
+    healthcert_gdf: gpd.GeoDataFrame,
+    linking_df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, gpd.GeoDataFrame]:
     """
     Updates the table which links HealthCERT names to HPI Facility IDs.
@@ -682,7 +869,9 @@ def update_linking_table(
         The linking table with any new matches added, and a GeoDataFrame of any
         features which were unable to be matched.
     """
-    missing = healthcert_gdf[~healthcert_gdf["name"].isin(linking_df["healthcert_name"])]
+    missing = healthcert_gdf[
+        ~healthcert_gdf["name"].isin(linking_df["healthcert_name"])
+    ]
     found = hpi_gdf[hpi_gdf["name"].isin(missing["name"])][["hpi_facility_id", "name"]]
     found.columns = ["hpi_facility_id", "healthcert_name"]
     linking_df = pd.concat([linking_df, found])
