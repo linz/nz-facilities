@@ -20,5 +20,6 @@ dependencies:
   - tabulate>=0,<2
   - pyarrow=16
   - pyogrio>=0,<2
+  - openpyxl
   - pip:
     - chompjs>=1,<2

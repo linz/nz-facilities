@@ -14,6 +14,7 @@ from facilities_change_detection.core.hospitals import (
     load_facilities_hospitals,
     load_healthcert_hospitals,
     load_hpi_excel,
+    update_linking_table,
 )
 from facilities_change_detection.core.io import add_styles_to_gpkg, get_layer_styles
 from facilities_change_detection.core.log import get_logger
@@ -35,10 +36,17 @@ def download_hpi_data(
             resolve_path=True,
             help="Folder where you want to download the data to.",
         ),
-    ] = Path.cwd() / "source_data",
-    overwrite: typing.Annotated[bool, typer.Option(help="Whether to overwrite an existing file with the same name.")] = False,
+    ] = Path.cwd()
+    / "source_data",
+    overwrite: typing.Annotated[
+        bool,
+        typer.Option(help="Whether to overwrite an existing file with the same name."),
+    ] = False,
     create_output_folder_if_not_exists: typing.Annotated[
-        bool, typer.Option("--create", help="Whether to create the output folder if it doesn't exist.")
+        bool,
+        typer.Option(
+            "--create", help="Whether to create the output folder if it doesn't exist."
+        ),
     ] = True,
 ):
     if create_output_folder_if_not_exists is True:
@@ -61,10 +69,17 @@ def download_healthcert_data(
             resolve_path=True,
             help="Folder where you want to download the data to.",
         ),
-    ] = Path.cwd() / "source_data",
-    overwrite: typing.Annotated[bool, typer.Option(help="Whether to overwrite an existing file with the same name.")] = False,
+    ] = Path.cwd()
+    / "source_data",
+    overwrite: typing.Annotated[
+        bool,
+        typer.Option(help="Whether to overwrite an existing file with the same name."),
+    ] = False,
     create_output_folder_if_not_exists: typing.Annotated[
-        bool, typer.Option("--create", help="Whether to create the output folder if it doesn't exist.")
+        bool,
+        typer.Option(
+            "--create", help="Whether to create the output folder if it doesn't exist."
+        ),
     ] = True,
     progress: typing.Annotated[bool, typer.Option(help="Show progress bars")] = True,
 ):
@@ -155,9 +170,14 @@ def update_linking(
     healthcert_gdf = load_healthcert_hospitals(healthcert_file)
     logger.info("Finding new HealthCERT features in HPI data")
     linking_df = pd.read_csv(linking_file)
-    updated_linking_df, missing_gdf = update_linking_table(hpi_gdf, healthcert_gdf, linking_df)
+    updated_linking_df, missing_gdf = update_linking_table(
+        hpi_gdf, healthcert_gdf, linking_df
+    )
     if matched_count := len(updated_linking_df) - len(linking_df):
-        logger.info(f"Matched {matched_count} HealthCERT features not in the linking " "table by name to a HPi feature.")
+        logger.info(
+            f"Matched {matched_count} HealthCERT features not in the linking "
+            "table by name to a HPi feature."
+        )
         logger.info(f"Saving updated linking table to {output_linking_file}")
         updated_linking_df.to_csv(output_linking_file, index=False)
     if missing_count := len(missing_gdf):
@@ -209,7 +229,7 @@ def compare(
             resolve_path=True,
             exists=True,
             readable=True,
-            help="Path to HealthCERT file. Must be a GeoPackage file of data scraped from the Ministry of Health website [see command 'download-healthcert-data'].",
+            help="Path to HealthCERT file. Must be a Excel file of data received from the Ministry of Health.",
             show_default=False,
         ),
     ],
@@ -268,7 +288,10 @@ def compare(
         ),
     ],
     ignore_occupancy: typing.Annotated[
-        bool, typer.Option(help="Whether to ignore occupancy when comparing Facilities to HPI data.")
+        bool,
+        typer.Option(
+            help="Whether to ignore occupancy when comparing Facilities to HPI data."
+        ),
     ] = False,
 ):
     """
@@ -277,7 +300,7 @@ def compare(
     HealthCERT data.
 
     This command has six required inputs: the three source data files
-    (NZ Facilities Geopackage, HPI Excel, and HealthCERT GeoPackage), and three
+    (NZ Facilities Geopackage, HPI Excel, and HealthCERT Excel), and three
     additional helper files (a likelihood CSV, a linking CSV, and an HPI ignore
     CSV).
 
@@ -300,21 +323,27 @@ def compare(
         facilities_gdf = load_facilities_hospitals(facilities_file)
         logger.info("Loading HPI Excel file")
         hpi_gdf = load_hpi_excel(hpi_file, hpi_ignore_file)
-        logger.info("Loading HealthCERT GeoPackage")
+        logger.info("Loading HealthCERT Excel")
         healthcert_gdf = load_healthcert_hospitals(healthcert_file)
         logger.info("Assigning likelihood to HPI features")
         hpi_gdf = add_hpi_likelihood(hpi_gdf, likelihood_file)
         logger.info("Augmenting HPI with HealthCERT occupancy")
         hpi_gdf = add_hpi_occupancy(hpi_gdf, healthcert_gdf, linking_file)
         logger.info("Comparing Facilities to HPI")
-        facilities_gdf, hpi_new_gdf, hpi_matched_gdf = compare_facilities_to_hpi(facilities_gdf, hpi_gdf, ignore_occupancy)
+        facilities_gdf, hpi_new_gdf, hpi_matched_gdf = compare_facilities_to_hpi(
+            facilities_gdf, hpi_gdf, ignore_occupancy
+        )
         logger.info("Saving layers to output GeoPackage")
         facilities_gdf.to_file(output_file, layer="hospital_facilities")
         hpi_new_gdf.to_file(output_file, layer="hpi_new")
         hpi_matched_gdf.to_file(output_file, layer="hpi_matched")
         logger.info("Adding layer styles to GeoPackage")
         layer_styles = get_layer_styles(
-            {"hospital_facilities": "hospital_facilities.qml", "hpi_new": "hpi_new.qml", "hpi_matched": "hpi_matched.qml"}
+            {
+                "hospital_facilities": "hospital_facilities.qml",
+                "hpi_new": "hpi_new.qml",
+                "hpi_matched": "hpi_matched.qml",
+            }
         )
         add_styles_to_gpkg(output_file, layer_styles)
     except Exception as e:
