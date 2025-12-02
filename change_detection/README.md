@@ -13,31 +13,9 @@ and te Whatu Ora).
 
 This script is best executed using Conda for dependency management in Ubuntu or WSL2 in Windows.
 
-### Install Miniconda
+### Install Miniforge
 
-- Download the [Miniconda installer](https://docs.anaconda.com/free/miniconda/) 
-  from their website, or by running:
-  ```
-  wget "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
-  ```
-- Run the installer by navigating to the download directory and running:
-  ```
-  bash Miniconda3-latest-Linux-x86_64.sh
-  ```
-- Follow through the prompts to install Miniconda.
-- Say yes to the option to run `conda init` at the end of the installer.
-- Close and reopen your terminal window after installing conda for it to
-  recognise conda command
-- By default, the version of python installed in the base conda environment will
-  take precedence over the system python when simply running `python` in the
-  shell. To disable this behaviour, and allow using the system python by
-  default, unless you have specifically activated a conda environment, run:
-    ```
-    conda config --set auto_activate_base false
-    ```
-- Confirm the behaviour is as expected by running `which python` which should be
-  `/usr/bin/python`. (You may need to reopen your terminal window after running
-  the conda config command for it to take effect).
+- Install Miniforge using the steps at https://toitutewhenua.atlassian.net/wiki/spaces/TOP/pages/1585283478/Conda+Installation.
 
 ### Create conda environment
 
