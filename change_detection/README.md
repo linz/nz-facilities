@@ -13,9 +13,10 @@ and te Whatu Ora).
 
 This script is best executed using Conda for dependency management in Ubuntu or WSL2 in Windows.
 
-### Install Miniforge
+### Install Conda
 
-- Install Miniforge using the steps at https://toitutewhenua.atlassian.net/wiki/spaces/TOP/pages/1585283478/Conda+Installation.
+- LINZ uses Miniforge, a minimal and open-source version of Conda that uses the community-driven conda-forge repository, https://github.com/conda-forge/miniforge.
+- LINZ internal documentation for installing Miniforge: https://toitutewhenua.atlassian.net/wiki/spaces/TOP/pages/1585283478/Conda+Installation.
 
 ### Create conda environment
 
