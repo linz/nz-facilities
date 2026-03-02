@@ -113,9 +113,18 @@ class UpdateFacilitiesTable(object):
 
                     no_duplicates = self.add_facility_duplicate_check()
 
-                    no_overlaps = self.check_overlapping_geom()
+                    # TODO
+                    # Overlap checking commented out for now as it needs to be moved.
+                    # Currently loops through each new or modified geometry and
+                    #   checks for overlaps against the old facilities geometries.
+                    #   Instead, this needs to be moved to the end to check for overlaps
+                    #   against all new, modified, and unchanged geometries.
+                    # Overlap checks will be run manually for now.
 
-                    if no_duplicates and no_overlaps:
+                    # no_overlaps = self.check_overlapping_geom()
+
+                    # if no_duplicates and no_overlaps:
+                    if no_duplicates:
                         added += 1
 
             elif self.change_action == "remove":
@@ -126,9 +135,19 @@ class UpdateFacilitiesTable(object):
 
             elif self.change_action == "update_geom":
                 successfully_updated_geom = self.update_geom()
-                no_overlaps = self.check_overlapping_geom()
 
-                if successfully_updated_geom and no_overlaps:
+                # TODO
+                # Overlap checking commented out for now as it needs to be moved.
+                # Currently loops through each new or modified geometry and
+                #   checks for overlaps against the old facilities geometries.
+                #   Instead, this needs to be moved to the end to check for overlaps
+                #   against all new, modified, and unchanged geometries.
+                # Overlap checks will be run manually for now.
+
+                # no_overlaps = self.check_overlapping_geom()
+
+                # if successfully_updated_geom and no_overlaps:
+                if successfully_updated_geom:
                     geom_changed += 1
 
             elif self.change_action == "update_attr":
@@ -139,9 +158,19 @@ class UpdateFacilitiesTable(object):
 
             elif self.change_action == "update_geom_attr":
                 successfully_updated_geom_attr = self.update_geom_attr()
-                no_overlaps = self.check_overlapping_geom()
 
-                if successfully_updated_geom_attr and no_overlaps:
+                # TODO
+                # Overlap checking commented out for now as it needs to be moved.
+                # Currently loops through each new or modified geometry and
+                #   checks for overlaps against the old facilities geometries.
+                #   Instead, this needs to be moved to the end to check for overlaps
+                #   against all new, modified, and unchanged geometries.
+                # Overlap checks will be run manually for now.
+                
+                # no_overlaps = self.check_overlapping_geom()
+
+                # if successfully_updated_geom_attr and no_overlaps:
+                if successfully_updated_geom_attr:
                     # if went through modified attributes step and the modified geom step with no errors
                     geom_and_attributes_changed += 1
 
