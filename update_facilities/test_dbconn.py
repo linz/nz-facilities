@@ -215,7 +215,7 @@ class TestDBConn(object):
             )
         else:
             self.update_facilities_plugin.facilities_logging.error(
-                "Column '{}' missing from input".format(str(column[0])),
+                "No temp facilities table in the facilities schema"
             )
 
             self.update_facilities_plugin.dlg.msgbox.insertPlainText(
