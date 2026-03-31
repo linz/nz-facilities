@@ -36,7 +36,7 @@ CREATE TABLE facilities.facilities_result_logging(
     geom_attr_updated integer DEFAULT 0,
     unchanged integer DEFAULT 0,
     row_count_before integer DEFAULT 0,
-    row_count_after integer DEFAULT 0,
+    row_count_after integer DEFAULT 0
 );
 
 COMMENT ON TABLE facilities.facilities_result_logging IS 'Stores the log of the results of the update facilities table';
